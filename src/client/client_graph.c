@@ -63,9 +63,9 @@ void set_rect(sfIntRect* rectangle, int l, int t, int w, int h)
   rectangle->width = h;
 }
 
-void init_player(struct player* p, char* f, float x, float y, int h, int w)
+void init_player(struct player* p, char* f, float x, float y, int h, int w,
+    sfIntRect rect)
 {
-  sfIntRect rect = {1, 1, 30, 30};
   p->w = w;
   p->h = h;
   p->x = x;
@@ -234,10 +234,13 @@ int main()
    * В слушающем потоке будут приниматься ID игрока, что соответсвует номеру
    * в массиве структур, и направление его движения.
    * */
+  sfIntRect rect = {0, 0, 0, 0};
   struct player* player1 = calloc(sizeof(struct player), 1);
   struct player* player2 = calloc(sizeof(struct player), 1);
-  init_player(player1, "textures/PacmanYellowEyes2.png", 30, 30, 18, 18);
-  init_player(player2, "textures/PacmanRedEyes2.png", 130, 310, 18, 18);
+  set_rect(&rect, 1, 1, 30, 30);
+  init_player(player1, "textures/PacmanYellowEyes2.png", 30, 30, 19, 19, rect);
+  set_rect(&rect, 1, 93, 30, 30);
+  init_player(player2, "textures/PacmanRedEyes2.png", 26*30, 30, 19, 19, rect);
   
   pthread_t listen_thread;
   pthread_create(&listen_thread, NULL, net_check, (void*)player2);
@@ -256,7 +259,6 @@ int main()
   sfRenderStates* states;
   window = sfRenderWindow_create(mode, "PAC-MAN", sfResize | sfClose, NULL);
   
-  sfIntRect rect = {0, 0, 0, 0};
   sfClock* clock = sfClock_create();
   if(!window)
     return 1;
