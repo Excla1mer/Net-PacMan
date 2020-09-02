@@ -7,37 +7,43 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#define HEIGHT_MAP 25 // размер карты высота
-#define WIDTH_MAP 34  // размер карты ширина
+#define HEIGHT_MAP 31 // размер карты высота
+#define WIDTH_MAP 28  // размер карты ширина
 #define BLOCK 30      // размер блока
 #define RECV_PORT 8888
 
 char map[HEIGHT_MAP][WIDTH_MAP] = {
-	"1-D------------------------------2",
-	"| |                              |",
-	"| 4-l                            |",
-	"|                                |",
-	"| 1-l r-2                        |",
-	"| |     |                        |",
-	"| |     |                        |",
-	"|                                |",
-	"|                                |",
-	"|                                |",
-	"|                                |",
-	"|                                |",
-	"|                                |",
-	"|                                |",
-	"|                                |",
-	"|                                |",
-	"|                                |",
-	"|                                |",
-	"|                                |",
-	"|                                |",
-	"|                                |",
-	"|                                |",
-	"|                                |",
-	"|                                |",
-	"4--------------------------------3",
+	"1------------21------------2",
+	"|            ||            |",
+	"| 1--2 1---2 || 1---2 1--2 |",
+	"| |**| |***| || |***| |**| |",
+	"| 4--3 4---3 43 4---3 4--3 |",
+	"|                          |",
+	"| 1--2 12 1------2 12 1--2 |",
+	"| 4--3 || 4--21--3 || 4--3 |",
+	"|      ||    ||    ||      |",
+	"4----2 |4--2 || 1--3| 1----3",
+	"*****| |1--3 43 4--2| |*****",
+	"*****| ||          || |*****",
+	"*****| || 1------2 || |*****",
+	"d----3 43 |******| 43 4----u",
+	"r*****    |******|    *****l",
+	"d----2 12 |******| 12 1----u",
+	"*****| || 4------3 || |*****",
+	"*****| ||          || |*****",
+	"*****| || 1------2 || |*****",
+	"1----3 43 4--21--3 43 4----2",
+	"|            ||            |",
+	"| 1--2 1---2 || 1---2 1--2 |",
+	"| 4-2| 4---3 43 4---3 |1-3 |",
+	"|   ||                ||   |",
+	"4-2 || 12 1------2 12 || 1-3",
+	"1-3 43 || 4--21--3 || 43 4-2",
+	"|      ||    ||    ||      |",
+	"| 1----34--2 || 1--34----2 |",
+	"| 4--------3 43 4--------3 |",
+	"|                          |",
+	"4--------------------------3",
 };
 
 struct player
@@ -78,27 +84,44 @@ void action_with_map(struct player* p)
   for(int i = (p->y) / BLOCK; i < (p->y + p->h) / (BLOCK); i++)
     for(int j = (p->x) / BLOCK; j<(p->x + p->w) / (BLOCK); j++)
     {
+      if(map[i][j] == ' ')
+      {
+        map[i][j] = '*';
+        return;
+      }
+      if(map[i][j] == 'r')
+      {
+        p->x = WIDTH_MAP * BLOCK - 2 * BLOCK;
+        return;
+      }
+      if(map[i][j] == 'l')
+      {
+        p->x = BLOCK;
+        return;
+      }
       if((map[i][j] != ' ') && (map[i][j] != '*'))
       {
         if(p->dy>0)
         {
           p->y = i * BLOCK - p->h;
+          return;
         }
         if(p->dy<0)
         {
           p->y = i * BLOCK + BLOCK;
+          return;
         }
         if(p->dx>0)
         {
           p->x = j * BLOCK - p->w;
+          return;
         }
         if(p->dx < 0)
         {
           p->x = j * BLOCK + BLOCK;
+          return;
         }
       }
-      if(map[i][j] == ' ')
-        map[i][j] = '*';
     }
 }
 
@@ -153,13 +176,11 @@ void update(struct player* p, float time)
   p->y += p->dy*time;
 
   p->speed = 0;
-  sfVector2f pos = {p->x, p->y};
   //printf("x: %f   y: %f\n", p->x, p->y);
   action_with_map(p);
+  sfVector2f pos = {p->x, p->y};
   sfSprite_setPosition(p->sprite, pos);
 }
-
-
 
 void set_vec(sfVector2f* vec, float x, float y)
 {
@@ -221,7 +242,7 @@ int main()
   pthread_t listen_thread;
   pthread_create(&listen_thread, NULL, net_check, (void*)player2);
 
-  sfVideoMode mode = {1024, 800, 32};
+  sfVideoMode mode = {1150, 950, 32};
   sfCircleShape* circle;
   sfRenderWindow* window;
   sfEvent event;
@@ -295,11 +316,6 @@ int main()
           set_rect(&rect, 60, 0, 30, 30);
           sfSprite_setTextureRect(map_sprite, rect);
         }
-        if(map[i][j] == 'R')
-        {
-          set_rect(&rect, 90, 0, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect);
-        }
         if(map[i][j] == '3')
         {
           set_rect(&rect, 120, 0, 30, 30);
@@ -315,52 +331,22 @@ int main()
           set_rect(&rect, 0, 30, 30, 30);
           sfSprite_setTextureRect(map_sprite, rect);
         }
-        if(map[i][j] == 'p')
-        {
-          set_rect(&rect, 30, 30, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect);
-        }
         if(map[i][j] == '-')
         {
           set_rect(&rect, 60, 30, 30, 30);
           sfSprite_setTextureRect(map_sprite, rect);
         }
-        if(map[i][j] == 'D')
-        {
-          set_rect(&rect, 90, 30, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect);
-        }
-        if(map[i][j] == 'U')
-        {
-          set_rect(&rect, 120, 30, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect);
-        }
-        if(map[i][j] == 'L')
-        {
-          set_rect(&rect, 150, 30, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect);
-        }
-        if(map[i][j] == 'l')
-        {
-          set_rect(&rect, 60, 60, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect);
-        }
-        if(map[i][j] == 'r')
+        if(map[i][j] == 'd')
         {
           set_rect(&rect, 90, 60, 30, 30);
           sfSprite_setTextureRect(map_sprite, rect);
         }
-        if(map[i][j] == 'd')
-        {
-          set_rect(&rect, 30, 60, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect);
-        }
         if(map[i][j] == 'u')
         {
-          set_rect(&rect, 0, 60, 30, 30);
+          set_rect(&rect, 60, 60, 30, 30);
           sfSprite_setTextureRect(map_sprite, rect);
         }
-        if(map[i][j] == '*')
+        if((map[i][j] == '*') || (map[i][j] == 't') || (map[i][j] == 'r'))
         {
           set_rect(&rect, 0, 0, 30, 30);
           sfSprite_setTextureRect(map_sprite, rect);
