@@ -18,29 +18,29 @@ all: client server clean
 bins: server client
 
 server: $(SERVER_SOURCES)
-		@$(CC) $(SERVER_SOURCES) -o $(SERVER) $(SERVER_LIBS) $(FLAGS)
+	@$(CC) $(SERVER_SOURCES) -o $(SERVER) $(SERVER_LIBS) $(FLAGS)
 
 server_exec: $(SERVER_SOURCES)
-		@$(CC) $(SERVER_SOURCES) -o $(SERVER) $(SERVER_LIBS) $(FLAGS)
-		@./$(SERVER)
-		@rm -rf $(SERVER)
+	@$(CC) $(SERVER_SOURCES) -o $(SERVER) $(SERVER_LIBS) $(FLAGS)
+	@./$(SERVER)
+	@rm -rf $(SERVER)
 
 server_debug: $(SERVER_SOURCES)
-		@$(CC) $(SERVER_SOURCES) -o $(SERVER) $(SERVER_LIBS) -g
-		@gdb $(SERVER)
-		@rm -rf $(SERVER)
+	@$(CC) $(SERVER_SOURCES) -o $(SERVER) $(SERVER_LIBS) -g
+	@gdb $(SERVER)
+	@rm -rf $(SERVER)
 
 client:
-		@$(CC) $(CLIENT_SOURCES) -o $(CLIENT) $(CLIENT_LIBS) $(FLAGS)
+	@$(CC) $(CLIENT_SOURCES) -o $(CLIENT) $(CLIENT_LIBS) $(FLAGS)
 
 client_exec:
-		@$(CC) $(CLIENT_SOURCES) -o $(CLIENT) $(CLIENT_LIBS) $(FLAGS)
-		@./$(CLIENT)
-		@rm -rf $(CLIENT)
+	@$(CC) $(CLIENT_SOURCES) -o $(CLIENT) $(CLIENT_LIBS) $(FLAGS)
+	@./$(CLIENT)
+	@rm -rf $(CLIENT)
 
 
 clean:
-	rm -rf *.o
+	@rm -rf *.o
 	@rm -rf $(SERVER) $(CLIENT)
 
 help_server:
