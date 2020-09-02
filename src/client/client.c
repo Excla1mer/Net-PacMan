@@ -11,7 +11,7 @@
 #define WIDTH_MAP 28  // размер карты ширина
 #define BLOCK 30      // размер блока
 #define RECV_PORT 8888
-
+#define PORT 1234  		// TCP порт
 char map[HEIGHT_MAP][WIDTH_MAP] = {
 	"1------------21------------2",
 	"|            ||            |",
@@ -53,6 +53,12 @@ struct player
   sfSprite* sprite;
   sfTexture* texture;
   sfImage* image;
+};
+
+struct player_stat {
+	float x;
+	float y;
+	int score;
 };
 
 void set_rect(sfIntRect* rectangle, int l, int t, int w, int h)
@@ -225,6 +231,55 @@ void* net_check(void* args)
   }
 
 }
+/*
+ * Синхронизирующий поток, работает по TCP. Получает запрос от клиента на 
+ * синхронизацию, в ответ отправляет структуру player_stat с координатами 
+ * пакмена и его набранными очками.
+ */
+void *sinc_thread(void  *param){
+	struct player *player1 = (struct player*)param;
+	struct player_stat player_sinc;
+	struct sockaddr_in server;
+	int n;
+	int sign;
+	int pt_fd;
+	if((pt_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+    perror("Socket:");
+    exit(1);
+  }
+        
+	memset(&server, 0, sizeof(server));
+  server.sin_family    = AF_INET;  
+  server.sin_addr.s_addr = INADDR_ANY;
+  server.sin_port = htons(PORT);
+	if(connect(pt_fd, (struct sockaddr *)&server, sizeof(server)) == -1) {
+		perror("connect");
+		exit(1);
+	}
+	printf("[sinc_thread] - connecting to server\n");
+	
+	while(1){
+		printf("[sinc_thread] - waiting signal\n");
+		if((n = recv(pt_fd, &sign, sizeof(int), 0)) == -1) {
+			perror("sinc_thread Recv");
+			exit(1);
+		}
+		player_sinc.x = player1->x;
+		player_sinc.y = player1->y;
+		player_sinc.score = player1->speed; /* Надо будет узнать какая переменная 
+		* отвечает за очки
+		*/
+		printf("[sinc_thread] - Got signal, sending struct: x=%f y=%f score=%d\n", 
+				player_sinc.x, player_sinc.y, player_sinc.score);
+		
+		if(send(pt_fd, &player_sinc, sizeof(struct player_stat), 0) == -1) {
+			perror("sinc_thread Send");
+			exit(1);
+		}
+	
+
+	}
+}
 
 int main()
 {
@@ -234,6 +289,11 @@ int main()
    * В слушающем потоке будут приниматься ID игрока, что соответсвует номеру
    * в массиве структур, и направление его движения.
    * */
+	// Файловый дескриптор для подключения к серверу TCP
+	int fd;
+	int n;
+	char player_id[50]="hello\0";
+	struct sockaddr_in server;
   sfIntRect rect = {0, 0, 0, 0};
   struct player* player1 = calloc(sizeof(struct player), 1);
   struct player* player2 = calloc(sizeof(struct player), 1);
@@ -244,6 +304,38 @@ int main()
   
   pthread_t listen_thread;
   pthread_create(&listen_thread, NULL, net_check, (void*)player2);
+
+  pthread_t sinc_thread_tid; 
+
+  if((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+      perror("Socket:");
+      exit(1);
+  }
+        
+	memset(&server, 0, sizeof(server));
+  server.sin_family    = AF_INET;  
+  server.sin_addr.s_addr = INADDR_ANY;
+  server.sin_port = htons(PORT);
+  
+	if(connect(fd, (struct sockaddr *)&server, sizeof(server)) == -1) {
+		perror("[main] connect");
+		exit(1);
+	}
+	
+	printf("[main] connecting to server\n");
+	/*if(send(fd, player_id, strlen(player_id), 0) == -1) 
+	{
+		perror("[main] Send");
+		exit(1);
+	}*/
+	printf("[main] wait player_id\n");
+	if((n = recv(fd, player_id, sizeof(player_id), 0)) == -1) 
+	{
+		perror("[main] Recv");
+		exit(1);
+	}
+	printf("[main] - Got player_id from server: %s \n", player_id);
+	pthread_create(&sinc_thread_tid, NULL, sinc_thread, &player1);
 
   sfVideoMode mode = {1150, 950, 32};
   sfRenderWindow* window;
