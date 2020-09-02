@@ -2,4 +2,6 @@ language: c
 compiler:
   - gcc
 
+install: apt install libxmu-dev
+
 script: ./install_csfml.sh && make 
