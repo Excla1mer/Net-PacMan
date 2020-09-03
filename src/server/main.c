@@ -28,7 +28,6 @@
  *##############################################################################
  */
 
-
 int main()
 {
 /*##############################################################################
@@ -45,7 +44,8 @@ int main()
    */
   const char *section = "MAIN";
 
-  int count;
+  /*int count;*/
+  int ret;
   char message[100];
   struct sockaddr_in server_addr_struct;
 
@@ -75,14 +75,21 @@ int main()
    */
   tcp_sock_desc = 0;
   udp_sock_desc = 0;
-  mq_desc = 0;
+  local_mq_desc = 0;
+  net_mq_desc = 0;
 
   input_handling_tid = 0;
   network_control_tid = 0;
-  memset(client_thread_tid, 0, sizeof(client_thread_tid));
+  network_accept_tid = 0;
+  network_sync_tid = 0;
+  network_dist_tid = 0;
+  memset(network_cl_handling_tid, 0, sizeof(network_cl_handling_tid));
 
-  client_max_id = 0;
+  client_max_id = -1;
   memset(message, 0, sizeof(message));
+
+  ready_count = 0;
+  ret = -1;
 
   printf("[%s] - Started\n", section);
 
@@ -91,27 +98,15 @@ int main()
  *##############################################################################
  */
 
- count = 0;
- while (pthread_create(&input_handling_tid, &threadAttr, input_handling,
-                        NULL) > 0)
+  /*
+   * Однотипных запусков стало так много, что они были вынесены в отдельную
+   * функцию "launch_thread"
+   */
+  if (launch_thread(&input_handling_tid, input_handling, "INPUT HANDLING") != 0)
   {
-    /* Если создание потока проваливается - повторять до MAX_ATTEMPTS попыток */
-    if (count < MAX_ATTEMPTS)
-    {
-      printf("[%s] - Failed to create input hadling thread."\
-      "Retrying again in %d seconds...\n", section, SLEEP_TIME);
-      sleep(SLEEP_TIME);
-      count++;
-    }
-    /* Иначе - полный провал старта потока. Вся программа завершается. */
-    else
-    {
-      printf("[%s] - Input hadling thread failed to start after %d attempts."\
-              "Exiting program...\n", section, count+1);
-
-      /* Ничего подчищать не нужно, так как ничего и не было сделано. */
-      exit(0);
-    }
+    /* Ничего подчищать не нужно, так как ничего и не было создано. Выход. */
+    printf("[%s] - Server shuted down\n", section);
+    exit(0);
   }
   /* При успешном запуске потока, инициализируется мьютекс. */
   input_handling_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
@@ -121,66 +116,114 @@ int main()
  *##############################################################################
  */
 
-  /* TCP */
-  /* Создание сокета. */
-  while ((tcp_sock_desc = socket(AF_INET, SOCK_STREAM, 0)) == -1) {}
-  printf("[%s] - (TCP) Socket created\n", section);
+ /*
+  * Вся работа с сокетами в одном бесконечном цикле. Но этот цикл всё равно
+  * будет окончен в любом случае.
+  * Цикл выступает логическими скобками, которые держат весь блок работы с
+  * сокетами вместе. Если один из этапов провалится - дальше можно будет не
+  * продолжать. Значит, цикл оборвётся на этом этапе.
+  * На выходе из цикла есть условие, что следит за значением ret, которое и
+  * укажет на то, как прошла работа цикла.
+  */
+  while(1)
+  {
+    /* TCP */
+    /* Создание сокета. */
+    if ((tcp_sock_desc = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+    {
+      /* Это ошибка. Сообщить о ней, и разорвать цикл. */
+      perror("TCP SOCKET");
+      break;
+    }
+    printf("[%s] - (TCP) Socket created\n", section);
 
-  /* Привязка сокета */
-  while ((bind(tcp_sock_desc, (struct sockaddr *)&server_addr_struct,
-          sizeof(server_addr_struct))) == -1) {}
-  printf("[%s] - (TCP) Socket binded\n", section);
+    /* Привязка сокета */
+    if ((bind(tcp_sock_desc, (struct sockaddr *)&server_addr_struct,
+              sizeof(server_addr_struct))) == -1)
+    {
+      perror("TCP BIND");
+      break;
+    }
+    printf("[%s] - (TCP) Socket binded\n", section);
 
-  /* Перевод сокета в режим прослушки */
-  while ((listen(tcp_sock_desc, 0)) == -1) {}
-  printf("[%s] - (TCP) Socket set to listening mode\n", section);
+    /* Перевод сокета в режим прослушки */
+    if ((listen(tcp_sock_desc, 0)) == -1)
+    {
+      perror("TCP LISTEN");
+      break;
+    }
+    printf("[%s] - (TCP) Socket set to listening mode\n", section);
 
-  /* UDP */
-  /* Создание сокета. */
-  while ((udp_sock_desc = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {}
-  printf("[%s] - (UDP) Socket created\n", section);
+    /* UDP */
+    /* Создание сокета. */
+    if ((udp_sock_desc = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+    {
+      perror("UDP SOCKET");
+      break;
+    }
+    printf("[%s] - (UDP) Socket created\n", section);
 
-  /* Привязка сокета */
-  while ((bind(udp_sock_desc, (struct sockaddr *)&server_addr_struct,
-          sizeof(server_addr_struct))) == -1) {}
-  printf("[%s] - (UDP) Socket binded\n", section);
+    /* Привязка сокета */
+    if ((bind(udp_sock_desc, (struct sockaddr *)&server_addr_struct,
+              sizeof(server_addr_struct))) == -1)
+    {
+      perror("UDP BIND");
+      break;
+    }
+    /*
+     * Цикл не был разорван ранее, а значит, всё прошло нормально и все задачи
+     * с сокетами выполнены успешно.
+     * Меняется значение ret и разрывается цикл.
+     */
+    printf("[%s] - (UDP) Socket binded\n", section);
+    ret = 0;
+    break;
+  }
+
+  /* ret по умолчанию равен -1. Если цикл разорвала ошибка, то это значение не
+  * поменялось, а значит продолжать работу нет смысла. Сервер закроется.
+  * Если же значение ret было измененно (=/= -1) то все задачи были выполнены
+  * и можно продолжать работу сервера. */
+  if (ret == -1)
+  {
+    /* Здесь перед выходом уже потребуется очистка */
+    init_shut();
+    printf("[%s] - Server shuted down\n", section);
+    exit(0);
+  }
 
 /*##############################################################################
- * Создание очереди сообщений
+ * Создание очередей сообщений
  *##############################################################################
  */
 
-  while ((mq_desc = mq_open(MESSAGE_QUEUE, O_RDWR | O_CREAT, 0655,
+  while ((local_mq_desc = mq_open(LOCAL_MQ, O_RDWR | O_CREAT | O_NONBLOCK, 0655,
                                   &queueAttr)) == -1) {}
-  printf("[%s] - Message queue created\n", section);
+  printf("[%s] - Local message queue created\n", section);
+
+  while ((net_mq_desc = mq_open(NET_MQ, O_RDWR | O_CREAT | O_NONBLOCK, 0655,
+                                  &queueAttr)) == -1) {}
+  printf("[%s] - Network message queue created\n", section);
 
 /*##############################################################################
  * Запуск потока сетевого контроля (network_control)
  *##############################################################################
  */
 
- /* Как и запуск потока обработки ввода, провал здесь завершит программу */
- count = 0;
- while (pthread_create(&network_control_tid, &threadAttr, network_control,
-                        NULL) > 0)
+  /* Как и запуск потока обработки ввода, провал здесь завершит программу */
+  if (launch_thread(&network_control_tid, network_control,
+                    "NET CONTROL") != 0)
   {
-    if (count < MAX_ATTEMPTS)
-    {
-      printf("[%s] - Failed to create network control thread."\
-      "Retrying again in %d seconds...\n", section, SLEEP_TIME);
-      sleep(SLEEP_TIME);
-      count++;
-    }
-    else
-    {
-      printf("[%s] - Network control thread failed to start after %d attempts."\
-              "Exiting program...\n", section, count+1);
-
-      /* Теперь придётся почистить данные, которые уже успели обработаться */
-      init_shut();
-      exit(0);
-    }
+   init_shut();
+   printf("[%s] - Server shuted down\n", section);
+   exit(0);
   }
+  ready_count_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
+
+/*##############################################################################
+ * Свободное ожидание
+ *##############################################################################
+ */
 
   /*
    * Сейчас, окончив работу выше, "main" просто ждёт конца работы потока

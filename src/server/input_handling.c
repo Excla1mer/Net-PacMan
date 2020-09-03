@@ -35,6 +35,7 @@ void *input_handling()
   /*int count;*/
 
   printf("[%s] - Started\n", section);
+  printf("-------------Type /shut to exit the program-------------\n");
   /*count = 0;*/
 
 /*##############################################################################
@@ -59,6 +60,21 @@ void *input_handling()
       /* Запустить "init_shut" для очистки данных */
       init_shut();
       pthread_mutex_unlock(&input_handling_lock);
+      /*
+       * Уничтожение мьютекса, в случае, если функция "init_shut" была вызвана
+       * из этого потока, происходит здесь, а не в "init_shut", так как там
+       * уничтожать мьютекс, который заблокирован, небезопасно.
+       */
+      if (pthread_mutex_destroy(&input_handling_lock) == 0)
+      {
+        printf("[%s] - Input handling mutex destroyed\n", section);
+      }
+      else
+      {
+        printf("[%s] - Unable to destroy input handling mutex."\
+               "Proceeding anyway...\n", section);
+      }
+
       printf("[%s] - Exiting thread...\n", section);
       /* Вернуть 0. Теперь контроль перейдёт в "main"*/
       pthread_exit((void *)0);

@@ -7,20 +7,20 @@
  * Автор: Денис Пащенко.
  */
 
-/* Порт, на котором открываются оба сокета. */
+/* Порты сокетов */
 #define SERVER_PORT 1234
 
-/*
- * Число игроков. Используется для тестов, где ещё нет нормальной обработки
- * начала игры.*/
-#define PLAYERS 2
+/* Максимальное число игроков, поддерживаемое сервером. Не должно быть более 4*/
+#define MAX_PLAYERS 4
 
 /* Значения, используемые в различных попытках чего-либо достичь */
 #define MAX_ATTEMPTS 3
 #define SLEEP_TIME 1
 
 /* Имя файла-очереди сообщений */
-#define MESSAGE_QUEUE "/PM_server_threadChat"
+/* ПРИМЕЧАНИЕ: вероятно, две очереди нужны не будут, но пока пусть будут. */
+#define LOCAL_MQ "/PM-server_localMQ"
+#define NET_MQ "/PM-server_netMQ"
 
 /*##############################################################################
  * Глобальные переменные
@@ -30,8 +30,9 @@
 /* Атрибуты потоков. Устанавливаются в main.*/
 pthread_attr_t threadAttr;
 
-/* Дескриптор очереди сообщений */
-mqd_t mq_desc;
+/* Дескрипторы очередей сообщений */
+mqd_t local_mq_desc;
+mqd_t net_mq_desc;
 
 /* Дескрипторы сокетов */
 int tcp_sock_desc;
@@ -39,6 +40,9 @@ int udp_sock_desc;
 
 /* Максимальный ID клиента. Также, общее число клиентов-1 */
 int client_max_id;
+
+/* Счётчик готовых клиентов */
+int ready_count;
 
 /* Сетевые данные клиентов */
 int net_client_desc[4];
@@ -48,7 +52,11 @@ socklen_t net_client_addr_size[4];
 /* tid-ы*/
 pthread_t input_handling_tid;
 pthread_t network_control_tid;
-pthread_t client_thread_tid[4];
+pthread_t network_accept_tid;
+pthread_t network_sync_tid;
+pthread_t network_dist_tid;
+pthread_t network_cl_handling_tid[4];
 
 /* Мьютекс */
 pthread_mutex_t input_handling_lock;
+pthread_mutex_t ready_count_lock;

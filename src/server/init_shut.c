@@ -11,6 +11,7 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
@@ -21,6 +22,7 @@
 #include <arpa/inet.h>
 
 #include "server_defs.h"
+#include "server_protos.h"
 
 int init_shut()
 {
@@ -28,6 +30,11 @@ int init_shut()
 
   int count;
   int result;
+
+  /* Используется только для передачи имени клиентских потоков */
+  char thread_name[9];
+
+  memset(thread_name, 0, sizeof(thread_name));
 
   printf("[%s] - Called\n", section);
 
@@ -37,6 +44,9 @@ int init_shut()
  */
 
  /*
+  * Работа с данными идёт только, если они были изменены (например, не 0),
+  * и не возвращали при этом ошибку (например, больше нуля).
+  *
   * Первым делом закрываются все потоки, чтобы как можно раньше исключить работу
   * с данными.
   */
@@ -49,52 +59,60 @@ int init_shut()
   * выполнение "init_shut". Иначе, если сюда вошёл любой другой поток - он
   * первым делом закроет поток обработки ввода.
   */
- if (pthread_mutex_trylock(&input_handling_lock) == 0)
+  if (pthread_mutex_trylock(&input_handling_lock) == 0)
+  {
+    if (input_handling_tid > 0)
+    {
+      close_thread(input_handling_tid, "INPUT HANDLING");
+      pthread_mutex_unlock(&input_handling_lock);
+      /*
+      * Мьютекс больше нигде не используется. Можно его уничтожить.
+      *
+      * ВАЖНО: Уничтожить мьютекс здесь сможет только любой поток, который НЕ
+      * является потоком обработки команд ввода ("input_handling"). Специально
+      * для его случая, мьютекс удаляется в том же потоке, после выполнения
+      * функции "init_shut", но до выхода из потока.
+      */
+      if (pthread_mutex_destroy(&input_handling_lock) == 0)
+      {
+        printf("[%s] - Input handling mutex destroyed\n", section);
+      }
+      else
+      {
+        printf("[%s] - Unable to destroy input handling mutex."\
+        "Proceeding anyway...\n", section);
+      }
+    }
+ }
+
+ /* Поток принятия подключений */
+ if (network_accept_tid > 0)
  {
-   if(input_handling_tid > 0)
+   close_thread(network_accept_tid, "NET ACCEPT");
+ }
+
+ /* Клиентские потоки */
+ for (count = 0; count <= client_max_id; count++)
+ {
+   if (network_cl_handling_tid[count] > 0)
    {
-     if (pthread_cancel(input_handling_tid) == 0)
-     {
-       printf("[%s] - Input handling thread canceled\n", section);
-     }
-     else
-     {
-       printf("[%s] - Unable to cancel input handling thread."\
-       "Proceeding anyway...\n", section);
-     }
+     sprintf(thread_name, "NET CL#%d", count);
+     close_thread(network_cl_handling_tid[count], thread_name);
    }
-   pthread_mutex_unlock(&input_handling_lock);
+ }
+
+ /* Поток сетевой рассылки */
+ if (network_dist_tid > 0)
+ {
+   close_thread(network_dist_tid, "NET DIST");
+   /* Уничтожение мьютекса */
+   pthread_mutex_destroy(&ready_count_lock);
  }
 
  /* Поток сетевого контроля */
  if (network_control_tid > 0)
  {
-   if (pthread_cancel(network_control_tid) == 0)
-   {
-     printf("[%s] - Network control thread canceled\n", section);
-   }
-   else
-   {
-     printf("[%s] - Unable to cancel network control thread."\
-     "Proceeding anyway...\n", section);
-   }
- }
-
- /* Клиентские потоки */
- for (count = 0; count < PLAYERS; count++)
- {
-   if (client_thread_tid[count] > 0)
-   {
-     if (pthread_cancel(client_thread_tid[count]) == 0)
-     {
-       printf("[%s] - Client #%d thread canceled\n", section, count);
-     }
-     else
-     {
-       printf("[%s] - Unable to cancel client #%d thread. "\
-       "Proceeding anyway...\n", section, count);
-     }
-   }
+   close_thread(network_control_tid, "NET CONTROL");
  }
 
 /*##############################################################################
@@ -102,24 +120,10 @@ int init_shut()
  *##############################################################################
  */
 
-  /*
-   * Работа с данными идёт только, если они были изменены (например, не 0),
-   * и не возвращали при этом ошибку (например, больше нуля).
-   *
-   * По сути, со всеми данными работает один и тот же код. Можно его
-   * унифицировать, но в некоторых случаях, может потребоваться немного иное
-   * поведение, так что, пока что, это всё куча очень похожих друг на друга
-   * if-ов.
-   */
-
   /* TCP сокет */
   if (tcp_sock_desc > 0)
   {
     count = 0;
-    /*
-     * До MAX_ATTEMPTS попыток на действия.
-     * Иначе - окончить попытки и продолжить.
-     */
     while (((result = close(tcp_sock_desc)) < 0) && (count < MAX_ATTEMPTS))
     {
       count++;
@@ -156,41 +160,78 @@ int init_shut()
     }
   }
 
-  /* Очередь сообщений */
-  if (mq_desc > 0)
+  /* Очереди сообщений */
+  /* Локальная */
+  if (local_mq_desc > 0)
   {
     /* Дескриптор */
     count = 0;
-    while (((result = mq_close(mq_desc)) < 0) && (count < MAX_ATTEMPTS))
+    while (((result = mq_close(local_mq_desc)) < 0) && (count < MAX_ATTEMPTS))
     {
       count++;
       sleep(SLEEP_TIME);
     }
     if (result >= 0)
     {
-      printf("[%s] - Message queue closed\n", section);
+      printf("[%s] - Local message queue closed\n", section);
     }
     else
     {
-      printf("[%s] - Unable to close message queue. Proceeding anyway...\n",
-              section);
+      printf("[%s] - Unable to close local message queue. "\
+              "Proceeding anyway...\n", section);
     }
-
     /* Файл очереди */
     count = 0;
-    while (((result = mq_unlink(MESSAGE_QUEUE)) < 0) && (count < MAX_ATTEMPTS))
+    while (((result = mq_unlink(LOCAL_MQ)) < 0) && (count < MAX_ATTEMPTS))
     {
       count++;
       sleep(SLEEP_TIME);
     }
     if (result >= 0)
     {
-      printf("[%s] - Message queue unlinked\n", section);
+      printf("[%s] - Local message queue unlinked\n", section);
     }
     else
     {
-      printf("[%s] - Unable to unlink message queue. Proceeding anyway...\n",
-              section);
+      printf("[%s] - Unable to unlink local message queue. "\
+              "Proceeding anyway...\n", section);
+    }
+  }
+
+  /* Сетевая */
+  if (net_mq_desc > 0)
+  {
+    /* Дескриптор */
+    count = 0;
+    while (((result = mq_close(net_mq_desc)) < 0) && (count < MAX_ATTEMPTS))
+    {
+      count++;
+      sleep(SLEEP_TIME);
+    }
+    if (result >= 0)
+    {
+      printf("[%s] - Network message queue closed\n", section);
+    }
+    else
+    {
+      printf("[%s] - Unable to close network message queue. "\
+              "Proceeding anyway...\n", section);
+    }
+    /* Файл очереди */
+    count = 0;
+    while (((result = mq_unlink(NET_MQ)) < 0) && (count < MAX_ATTEMPTS))
+    {
+      count++;
+      sleep(SLEEP_TIME);
+    }
+    if (result >= 0)
+    {
+      printf("[%s] - Network message queue unlinked\n", section);
+    }
+    else
+    {
+      printf("[%s] - Unable to unlink network message queue. "\
+              "Proceeding anyway...\n", section);
     }
   }
 
