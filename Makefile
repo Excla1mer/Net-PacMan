@@ -31,7 +31,7 @@ server_debug: $(SERVER_SOURCES)
 	@rm -rf $(SERVER)
 
 client:
-	$(CC) $(CLIENT_SOURCES) -o $(CLIENT) $(CLIENT_LIBS) $(FLAGS)
+	@$(CC) $(CLIENT_SOURCES) -o $(CLIENT) $(CLIENT_LIBS) $(FLAGS)
 
 client_exec:
 	@$(CC) $(CLIENT_SOURCES) -o $(CLIENT) $(CLIENT_LIBS) $(FLAGS)
