@@ -49,9 +49,12 @@ void *network_dist()
       {
         /* Заберите нужный блок. Другой закоментите. */
         /* Отправка по UDP */
-        sendto(udp_sock_desc, formatted_data, 100, 0,
+        /* Отправка в личный сокет клиента - уточнение адреса не требуется. */
+        send(udp_cl_sock_desc[count], formatted_data, 100, 0);
+        /*sendto(udp_cl_sock_desc[count], formatted_data, 100, 0,
                     (struct sockaddr *)&net_client_addr[count],
-                    net_client_addr_size[count]);
+                    net_client_addr_size[count]);*/
+        /*perror("SEND");*/
         /* Отправка по TCP */
         /*
         send(net_client_addr[count], formatted_data, 100, 0);

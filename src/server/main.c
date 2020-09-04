@@ -44,10 +44,9 @@ int main()
    */
   const char *section = "MAIN";
 
-  /*int count;*/
+  int count;
   int ret;
   char message[100];
-  struct sockaddr_in server_addr_struct;
 
   /* Структура атрибутов очередей */
   struct mq_attr queueAttr;
@@ -75,6 +74,10 @@ int main()
    */
   tcp_sock_desc = 0;
   udp_sock_desc = 0;
+  for (count = 0; count < MAX_PLAYERS; count++)
+  {
+    udp_cl_sock_desc[count] = 0;
+  }
   local_mq_desc = 0;
   net_mq_desc = 0;
 
@@ -170,12 +173,13 @@ int main()
       perror("UDP BIND");
       break;
     }
+    printf("[%s] - (UDP) Socket binded\n", section);
+
     /*
      * Цикл не был разорван ранее, а значит, всё прошло нормально и все задачи
      * с сокетами выполнены успешно.
      * Меняется значение ret и разрывается цикл.
      */
-    printf("[%s] - (UDP) Socket binded\n", section);
     ret = 0;
     break;
   }

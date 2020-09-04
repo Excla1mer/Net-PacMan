@@ -37,6 +37,7 @@ mqd_t net_mq_desc;
 /* Дескрипторы сокетов */
 int tcp_sock_desc;
 int udp_sock_desc;
+int udp_cl_sock_desc[MAX_PLAYERS];
 
 /* Максимальный ID клиента. Также, общее число клиентов-1 */
 int client_max_id;
@@ -44,10 +45,13 @@ int client_max_id;
 /* Счётчик готовых клиентов */
 int ready_count;
 
+/* Сетевые данные сервера */
+struct sockaddr_in server_addr_struct;
+
 /* Сетевые данные клиентов */
-int net_client_desc[4];
-struct sockaddr_in net_client_addr[4];
-socklen_t net_client_addr_size[4];
+struct sockaddr_in net_client_addr[MAX_PLAYERS];
+int net_client_desc[MAX_PLAYERS];
+socklen_t net_client_addr_size[MAX_PLAYERS];
 
 /* tid-ы*/
 pthread_t input_handling_tid;
@@ -55,7 +59,7 @@ pthread_t network_control_tid;
 pthread_t network_accept_tid;
 pthread_t network_sync_tid;
 pthread_t network_dist_tid;
-pthread_t network_cl_handling_tid[4];
+pthread_t network_cl_handling_tid[MAX_PLAYERS];
 
 /* Мьютекс */
 pthread_mutex_t input_handling_lock;

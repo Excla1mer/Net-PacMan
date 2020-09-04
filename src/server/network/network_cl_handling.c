@@ -100,24 +100,69 @@ void *network_cl_handling()
   }
 
 /*##############################################################################
- * Работа с игровыми данными
- *##############################################################################
+* Создание личного сокета клиента
+*##############################################################################
+*/
+
+  /*
+   * Потребуется создать собственный сокет, идентичный глобальному, но завязаный
+   * на текущего клиента
+   * ПРИМЕЧАНИЕ: Эта секция сейчас очень кривая и нестабильная! Также, созданные
+   * здесь сокеты не зачищаются в конце программы.
+   */
+
+  /*
+   * Порт, который использовал клиент, считается новым портом для соединения с
+   * ним здесь же, на стороне сервера.
+   */
+  server_addr_struct.sin_port = net_client_addr[client_id].sin_port;
+  printf("[%s#%d] - New port will be (%d)\n", section, client_id,
+          ntohs(net_client_addr[client_id].sin_port));
+
+  /* Создание сокета */
+  udp_cl_sock_desc[client_id] = socket(AF_INET, SOCK_DGRAM, 0);
+  perror("UDP SOCKET");
+  /*printf("[%s#%d] - (UDP) Socket created\n", section, client_id);*/
+
+  /* Привязка сокета */
+  bind(udp_cl_sock_desc[client_id], (struct sockaddr *)&server_addr_struct,
+      sizeof(server_addr_struct));
+  perror("UDP BIND");
+  /*printf("[%s#%d] - (UDP) Socket binded\n", section, client_id);*/
+
+  /* Привязка сокета */
+  connect(udp_cl_sock_desc[client_id],
+          (struct sockaddr *)&net_client_addr[client_id],
+          net_client_addr_size[client_id]);
+  perror("UDP CONNECT");
+  /*printf("[%s#%d] - (UDP) Socket connected\n", section, client_id);*/
+
+/*##############################################################################
+* Работа с игровыми данными
+*##############################################################################
+*/
+
+/*
+ * Поток переключается на ожидание данных клиента по UDP. Все эти данные он
+ * будет форматировать и отправлять в очередь сообщений, где эти данные ждёт
+ * поток сетевой рассылки (network_dist)
  */
 
- /*
-  * Поток переключается на ожидание данных клиента по UDP. Все эти данные он
-  * будет форматировать и отправлять в очередь сообщений, где эти данные ждёт
-  * поток сетевой рассылки (network_dist)
-  */
+  /* Можно начать слушать собственный сокет. */
   printf("[%s#%d] - Listening client via UDP\n", section, client_id);
   while(1)
   {
-    if(recvfrom(udp_sock_desc, net_data, 50, 0,
+    /*
+     * Личный сокет клиента теперь привязан к нему, так что можно не указывать
+     * адрес, а просто отсылать в сокет.
+     */
+    /*if(recvfrom(udp_cl_sock_desc[client_id], net_data, 50, 0,
                 (struct sockaddr *)&net_client_addr[client_id],
-                &net_client_addr_size[client_id]) > 0)
+                &net_client_addr_size[client_id]) > 0)*/
+    if(recv(udp_cl_sock_desc[client_id], net_data, 50, 0) > 0)
     {
-      /*printf("[%s#%d] - (UDP) Message from (%s): %s", section, client_id,
-              inet_ntoa(net_client_addr[client_id].sin_addr), net_data);*/
+      printf("[%s#%d] - (UDP) Message from (%s): %s", section, client_id,
+              inet_ntoa(net_client_addr[client_id].sin_addr), net_data);
       /*
        * Отправка данных в очередь сообщений. Считается, что из сети, от
        * клиента, было получено его направление движения. Оно отправляется в
