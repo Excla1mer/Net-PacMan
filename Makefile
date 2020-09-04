@@ -5,7 +5,7 @@ SERVER := bin/server
 SERVER_SOURCES := src/server/main.c\
 									src/server/input_handling.c\
 									src/server/init_shut.c\
-									src/server/thread_actions.c\
+									src/server/init_actions.c\
 									src/server/network/network_control.c\
 									src/server/network/network_accept.c\
 									src/server/network/network_cl_handling.c\

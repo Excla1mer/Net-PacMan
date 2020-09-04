@@ -31,8 +31,12 @@ void *network_cl_handling()
   const char *section = "NET CL";
 
   int client_id;
+  int count;
+  unsigned int new_port;
   char net_data[50];
   char formatted_data[100];
+
+  count = 0;
 
   memset(net_data, 0, sizeof(net_data));
   memset(formatted_data, 0, sizeof(formatted_data));
@@ -62,6 +66,7 @@ void *network_cl_handling()
   while ((send(net_client_desc[client_id], net_data,
               sizeof(net_data), 0)) == -1) {}
   printf("[%s#%d] - Notified client about it's ID\n", section, client_id);
+  memset(net_data, 0, sizeof(net_data));
 
 /*##############################################################################
  * Ожидание начала игры
@@ -78,8 +83,13 @@ void *network_cl_handling()
     {
       /*printf("[%s#%d] - (TCP) Message from (%s): %s", section, client_id,
               inet_ntoa(net_client_addr[client_id].sin_addr), net_data);*/
-      /* \n здесь сейчас для проверки с netcat. */
-      if(strcmp(net_data, "READY\n") == 0)
+
+/* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ * для проверки с netcat используйте комбинацию Ctrl+D вместо Enter, чтобы не
+ * отсылать \n
+ * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ */
+      if(strcmp(net_data, "READY") == 0)
       {
         printf("[%s#%d] - Client ready to start\n", section, client_id);
         /*
@@ -111,31 +121,83 @@ void *network_cl_handling()
    * здесь сокеты не зачищаются в конце программы.
    */
 
-  /*
-   * Порт, который использовал клиент, считается новым портом для соединения с
-   * ним здесь же, на стороне сервера.
-   */
-  server_addr_struct.sin_port = net_client_addr[client_id].sin_port;
-  printf("[%s#%d] - New port will be (%d)\n", section, client_id,
-          ntohs(net_client_addr[client_id].sin_port));
 
   /* Создание сокета */
-  udp_cl_sock_desc[client_id] = socket(AF_INET, SOCK_DGRAM, 0);
-  perror("UDP SOCKET");
-  /*printf("[%s#%d] - (UDP) Socket created\n", section, client_id);*/
+  if ((udp_cl_sock_desc[client_id] = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+  {
+    perror("UDP SOCKET");
+    /* Будет лучше добавить какую-то обработку здесь и подобных местах далее */
+  }
+  else
+  {
+    printf("[%s#%d] - (UDP) Socket created\n", section, client_id);
+  }
+
+  /*
+   * Процесс привязки сокета:
+   * Сервер начинает перебирать порт, пытаясь найти свободный
+   */
+  for(count = 1; count <= sizeof(int); count++)
+  {
+    /*
+     * Новый порт опирается на тот, что уже записан в глобальной структуре.
+     * Это потребует работы с мьютексом, но зато каждый следующий поток начнёт
+     * перебор минуя уже опробованые порты.
+     */
+    pthread_mutex_lock(&new_port_lock);
+    new_port = ntohs(server_addr_struct.sin_port) + count;
+    server_addr_struct.sin_port = htons(new_port);
+
+    /* Попытка привязки сокета */
+    if(bind(udp_cl_sock_desc[client_id], (struct sockaddr *)&server_addr_struct,
+        sizeof(server_addr_struct)) == 0)
+    {
+      pthread_mutex_unlock(&new_port_lock);
+      printf("[%s#%d] - (UDP) Socket binded on port (%d)\n",
+              section, client_id, new_port);
+      break;
+    }
+    /*else
+    {
+      perror("UDP BIND");
+    }*/
+    pthread_mutex_unlock(&new_port_lock);
+    if (count == sizeof(int))
+    {
+      printf("[%s#%d] - (UDP) Exeeded (int) range while serching for port! "\
+              "Retrying from beginig...\n",
+              section, client_id);
+      count = 1;
+    }
+  }
+  /*
+   * Уведомление клиента о выбраном порте. Используется тот же TCP - сокет, что
+   * и для уведомления об ID.
+   */
+  sprintf(net_data, "PORT:%d", new_port);
+  if ((send(net_client_desc[client_id], net_data,
+              sizeof(net_data), 0)) == -1)
+  {
+    perror("UDP SEND PORT");
+  }
+  else
+  {
+    printf("[%s#%d] - Notified client about new port\n", section, client_id);
+  }
+
+  memset(net_data, 0, sizeof(net_data));
 
   /* Привязка сокета */
-  bind(udp_cl_sock_desc[client_id], (struct sockaddr *)&server_addr_struct,
-      sizeof(server_addr_struct));
-  perror("UDP BIND");
-  /*printf("[%s#%d] - (UDP) Socket binded\n", section, client_id);*/
-
-  /* Привязка сокета */
-  connect(udp_cl_sock_desc[client_id],
+  if (connect(udp_cl_sock_desc[client_id],
           (struct sockaddr *)&net_client_addr[client_id],
-          net_client_addr_size[client_id]);
-  perror("UDP CONNECT");
-  /*printf("[%s#%d] - (UDP) Socket connected\n", section, client_id);*/
+          net_client_addr_size[client_id]) < 0)
+  {
+    perror("UDP CONNECT");
+  }
+  else
+  {
+    printf("[%s#%d] - (UDP) Socket connected\n", section, client_id);
+  }
 
 /*##############################################################################
 * Работа с игровыми данными

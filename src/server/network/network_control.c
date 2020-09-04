@@ -96,6 +96,12 @@ void *network_control()
   network_accept_tid = 0;
   printf("[%s] - NET accept thread canceled and joined\n", section);
 
+  /*
+   * Небольшая пауза даёт возможность потокам клиентов отослать своим подопечным
+   * порты для UDP соединения
+   */
+  sleep(SLEEP_TIME);
+
   /* Оповещение клиентов о готовности начать и количестве игроков. */
   sprintf(net_data, "START_%d", client_max_id + 1);
   for (count = 0; count <= client_max_id; count++)

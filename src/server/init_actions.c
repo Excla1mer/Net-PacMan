@@ -1,7 +1,7 @@
 /*
- * Различные функции работы с потоками.
+ * Различные функции работы с потоками и дескрипторами.
  *
- * Сейчас содержит функции запуска и завершения потока.
+ * Сейчас содержит функции запуска, завершения потока и закрытия дескриптора.
  *
  * Созданно: 03.09.20.
  * Автор: Денис Пащенко.
@@ -128,4 +128,35 @@ int close_thread(pthread_t tid, const char *thread_name)
       printf("[%s] - Thread (%s) closed\n", section, thread_name);
     }
     return ret;
+}
+
+/*##############################################################################
+ * Закрытие сетевых дескрипторов
+ *##############################################################################
+ */
+
+int close_sock(int sock, const char *sock_name)
+{
+  const char *section = "CLOSE SOCK";
+
+  int count;
+  int ret;
+
+   /* Закрытие сокета */
+   count = 0;
+   while (((ret = close(sock)) < 0) && (count < MAX_ATTEMPTS))
+   {
+     count++;
+     sleep(SLEEP_TIME);
+   }
+   if (ret >= 0)
+   {
+     printf("[%s] - (%s) socket closed\n", section, sock_name);
+   }
+   else
+   {
+     printf("[%s] - Unable to close (%s) socket. Proceeding anyway...\n",
+             section, sock_name);
+   }
+   return 0;
 }

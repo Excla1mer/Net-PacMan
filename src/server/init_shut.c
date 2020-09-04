@@ -31,10 +31,10 @@ int init_shut()
   int count;
   int result;
 
-  /* Используется только для передачи имени клиентских потоков */
-  char thread_name[9];
+  /* Используется для передачи клиентских данных */
+  char name[9];
 
-  memset(thread_name, 0, sizeof(thread_name));
+  memset(name, 0, sizeof(name));
 
   printf("[%s] - Called\n", section);
 
@@ -96,8 +96,8 @@ int init_shut()
  {
    if (network_cl_handling_tid[count] > 0)
    {
-     sprintf(thread_name, "NET CL#%d", count);
-     close_thread(network_cl_handling_tid[count], thread_name);
+     sprintf(name, "NET CL#%d", count);
+     close_thread(network_cl_handling_tid[count], name);
    }
  }
 
@@ -107,6 +107,7 @@ int init_shut()
    close_thread(network_dist_tid, "NET DIST");
    /* Уничтожение мьютекса */
    pthread_mutex_destroy(&ready_count_lock);
+   pthread_mutex_destroy(&new_port_lock);
  }
 
  /* Поток сетевого контроля */
@@ -157,6 +158,17 @@ int init_shut()
     {
       printf("[%s] - Unable to close UDP socket. Proceeding anyway...\n",
               section);
+    }
+  }
+
+  /* Личные сокеты клиентов */
+  for (count = 0; count <= client_max_id; count++)
+  {
+    if (udp_cl_sock_desc[count] > 0)
+    {
+      sprintf(name, "CL UDP#%d", count);
+      close_sock(udp_cl_sock_desc[count], name);
+      memset(name, 0, sizeof(name));
     }
   }
 

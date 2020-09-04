@@ -92,7 +92,6 @@ int main()
   memset(message, 0, sizeof(message));
 
   ready_count = 0;
-  ret = -1;
 
   printf("[%s] - Started\n", section);
 
@@ -128,6 +127,7 @@ int main()
   * На выходе из цикла есть условие, что следит за значением ret, которое и
   * укажет на то, как прошла работа цикла.
   */
+  ret = -1;
   while(1)
   {
     /* TCP */
@@ -201,13 +201,35 @@ int main()
  *##############################################################################
  */
 
-  while ((local_mq_desc = mq_open(LOCAL_MQ, O_RDWR | O_CREAT | O_NONBLOCK, 0655,
-                                  &queueAttr)) == -1) {}
-  printf("[%s] - Local message queue created\n", section);
+  /* Применяется та же логика цикла, что и выше */
+  ret = -1;
+  while (1)
+  {
+    if ((local_mq_desc = mq_open(LOCAL_MQ, O_RDWR | O_CREAT | O_NONBLOCK, 0655,
+      &queueAttr)) == -1)
+      {
+        perror("LOCAL MQ");
+        break;
+      }
+    printf("[%s] - Local message queue created\n", section);
 
-  while ((net_mq_desc = mq_open(NET_MQ, O_RDWR | O_CREAT | O_NONBLOCK, 0655,
-                                  &queueAttr)) == -1) {}
-  printf("[%s] - Network message queue created\n", section);
+    if ((net_mq_desc = mq_open(NET_MQ, O_RDWR | O_CREAT | O_NONBLOCK, 0655,
+      &queueAttr)) == -1)
+      {
+        perror("LOCAL MQ");
+        break;
+      }
+    printf("[%s] - Network message queue created\n", section);
+    ret = 0;
+    break;
+  }
+
+  if (ret == -1)
+  {
+    init_shut();
+    printf("[%s] - Server shuted down\n", section);
+    exit(0);
+  }
 
 /*##############################################################################
  * Запуск потока сетевого контроля (network_control)
@@ -223,6 +245,7 @@ int main()
    exit(0);
   }
   ready_count_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
+  new_port_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
 
 /*##############################################################################
  * Свободное ожидание
