@@ -6,12 +6,14 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <unistd.h>
+#include <arpa/inet.h>
 
-#define HEIGHT_MAP 31 // размер карты высота
-#define WIDTH_MAP 28  // размер карты ширина
-#define BLOCK 30      // размер блока
-#define RECV_PORT 8888
-#define PORT 1234  		// TCP порт
+#define HEIGHT_MAP 31     // размер карты высота
+#define WIDTH_MAP 28      // размер карты ширина
+#define BLOCK 30          // размер блока
+#define SERVER_PORT 1234  // порт сервера
+
 char map[HEIGHT_MAP][WIDTH_MAP] = {
 	"1------------21------------2",
 	"|            ||            |",
@@ -46,19 +48,30 @@ char map[HEIGHT_MAP][WIDTH_MAP] = {
 	"4--------------------------3",
 };
 
+char colors[4][32] = {
+  "textures/PacmanYellowEyes2.png\0",
+  "textures/PacmanRedEyes2.png\0",
+  "textures/PacmanPurpleEyes2.png\0",
+  "textures/PacmanGreenEyes2.png\0"
+};
+
 struct player
 {
+  int dir, last_dir, w, h, score;
   float x, y, dx, dy, speed, cur_frame;
-  int dir, last_dir, w, h;
   sfSprite* sprite;
+  sfSprite* icon_sprite;
   sfTexture* texture;
   sfImage* image;
 };
 
-struct player_stat {
-	float x;
-	float y;
-	int score;
+int udp_server_port;
+
+struct player_stat
+{
+  float x;
+  float y;
+  int score;
 };
 
 void set_rect(sfIntRect* rectangle, int l, int t, int w, int h)
@@ -69,30 +82,46 @@ void set_rect(sfIntRect* rectangle, int l, int t, int w, int h)
   rectangle->width = h;
 }
 
-void init_player(struct player* p, char* f, float x, float y, int h, int w,
-    sfIntRect rect)
+void init_players(struct player* p, int max_players, sfIntRect* rect)
 {
-  p->w = w;
-  p->h = h;
-  p->x = x;
-  p->y = y;
-  p->speed = 0;
-  p->dir = -1;
-  p->image = sfImage_createFromFile(f);
-  p->texture = sfTexture_createFromImage(p->image, NULL);
-  p->sprite = sfSprite_create();
-  sfSprite_setTexture(p->sprite, p->texture, sfTrue);
-  sfSprite_setTextureRect(p->sprite, rect);
+  int w = 21;
+  int h = 21;
+  int place[4][2] = {{30, 30}, {26*30, 30}, {30, 29*30}, {26*30, 29*30}};
+
+  for(int i=0; i<max_players; ++i)
+  {
+    /* Расстановка игроков по углам карты */
+    p[i].x = place[i][0];
+    p[i].y = place[i][1];
+
+    /* Инициализация начальных переменных каждого игрока*/
+    p[i].w = w;
+    p[i].h = h;
+    p[i].speed = 0;
+    p[i].dir = -1;
+    p[i].score = 0;
+    p[i].image = sfImage_createFromFile(colors[i]);
+    p[i].texture = sfTexture_createFromImage(p[i].image, NULL);
+    p[i].sprite = sfSprite_create();
+    p[i].icon_sprite = sfSprite_create();
+    sfSprite_setTexture(p[i].sprite, p[i].texture, sfTrue);
+    sfSprite_setTexture(p[i].icon_sprite, p[i].texture, sfTrue);
+
+    /* Поворот текстур в нужную сторону */
+    set_rect(rect, 1, (i % 2 ? 93 : 1), 30, 30);
+    sfSprite_setTextureRect(p[i].sprite, *rect);
+  }
 }
 
 void action_with_map(struct player* p)
 {
-  for(int i = (p->y) / BLOCK; i < (p->y + p->h) / (BLOCK); i++)
-    for(int j = (p->x) / BLOCK; j<(p->x + p->w) / (BLOCK); j++)
+  for(int i = (p->y + 8) / BLOCK; i < (p->y + p->h) / BLOCK; i++)
+    for(int j = (p->x + 8) / BLOCK; j < (p->x + p->w) / BLOCK; j++)
     {
       if(map[i][j] == ' ')
       {
         map[i][j] = '*';
+        p->score += 1;
         return;
       }
       if(map[i][j] == 'r')
@@ -114,7 +143,7 @@ void action_with_map(struct player* p)
         }
         if(p->dy<0)
         {
-          p->y = i * BLOCK + BLOCK;
+          p->y = i * BLOCK + BLOCK - 8;
           return;
         }
         if(p->dx>0)
@@ -124,68 +153,68 @@ void action_with_map(struct player* p)
         }
         if(p->dx < 0)
         {
-          p->x = j * BLOCK + BLOCK;
+          p->x = j * BLOCK + BLOCK - 8;
           return;
         }
       }
     }
 }
 
-void update(struct player* p, float time)
+void update(struct player* p, float time, int max_players)
 {
   sfIntRect rect = {0, 0, 0, 0};
-  switch(p->dir)
+  for(int i = 0; i < max_players; ++i)
   {
-    case 0:
-      p->speed = 0.1;
-      p->cur_frame += 0.005*time;
-      if(p->cur_frame>4)
-        p->cur_frame -= 4;
-      set_rect(&rect, 30*(int)p->cur_frame+(int)p->cur_frame+1, 1, 30, 30);
-      sfSprite_setTextureRect(p->sprite, rect);
-      p->dx = p->speed;
-      p->dy = 0;
-      break;
-    case 1:
-      p->speed = 0.1;
-      p->cur_frame += 0.005*time;
-      if(p->cur_frame>4)
-        p->cur_frame -= 4;
-      set_rect(&rect, 30*(int)p->cur_frame+(int)p->cur_frame+1, 93, 30, 30);
-      sfSprite_setTextureRect(p->sprite, rect);
-      p->dx = -p->speed;
-      p->dy = 0;
-      break;
-    case 2:
-      p->speed = 0.1;
-      p->cur_frame += 0.005*time;
-      if(p->cur_frame>4)
-        p->cur_frame -= 4;
-      set_rect(&rect, 30*(int)p->cur_frame+(int)p->cur_frame+1, 31, 30, 30);
-      sfSprite_setTextureRect(p->sprite, rect);
-      p->dx = 0;
-      p->dy = p->speed;
-      break;
-    case 3:
-      p->speed = 0.1;
-      p->cur_frame += 0.005*time;
-      if(p->cur_frame>4)
-        p->cur_frame -= 4;
-      set_rect(&rect, 30*(int)p->cur_frame+(int)p->cur_frame+1, 62, 30, 30);
-      sfSprite_setTextureRect(p->sprite, rect);
-      p->dx = 0;
-      p->dy = -p->speed;
-      break;
+    switch(p[i].dir)
+    {
+      case 0:
+        p[i].speed = 0.1;
+        p[i].cur_frame += 0.005 * time;
+        if(p[i].cur_frame > 4)
+          p[i].cur_frame -= 4;
+        set_rect(&rect, 30 * (int)p[i].cur_frame + 1, 1, 30, 30);
+        sfSprite_setTextureRect(p[i].sprite, rect);
+        p[i].dx = p[i].speed;
+        p[i].dy = 0;
+        break;
+      case 1:
+        p[i].speed = 0.1;
+        p[i].cur_frame += 0.005 * time;
+        if(p[i].cur_frame > 4)
+          p[i].cur_frame -= 4;
+        set_rect(&rect, 30 * (int)p[i].cur_frame + 1, 93, 30, 30);
+        sfSprite_setTextureRect(p[i].sprite, rect);
+        p[i].dx = -p[i].speed;
+        p[i].dy = 0;
+        break;
+      case 2:
+        p[i].speed = 0.1;
+        p[i].cur_frame += 0.005 * time;
+        if(p[i].cur_frame > 4)
+          p[i].cur_frame -= 4;
+        set_rect(&rect, 30 * (int)p[i].cur_frame + 1, 32, 30, 30);
+        sfSprite_setTextureRect(p[i].sprite, rect);
+        p[i].dx = 0;
+        p[i].dy = p[i].speed;
+        break;
+      case 3:
+        p[i].speed = 0.1;
+        p[i].cur_frame += 0.005 * time;
+        if(p[i].cur_frame > 4)
+          p[i].cur_frame -= 4;
+        set_rect(&rect, 30 * (int)p[i].cur_frame + 1, 62, 30, 30);
+        sfSprite_setTextureRect(p[i].sprite, rect);
+        p[i].dx = 0;
+        p[i].dy = -p[i].speed;
+        break;
+    }
+    p[i].x += p[i].dx * time;
+    p[i].y += p[i].dy * time;
+    p[i].speed = 0;
+    action_with_map(&p[i]);
+    sfVector2f pos = {p[i].x, p[i].y};
+    sfSprite_setPosition(p[i].sprite, pos);
   }
-
-  p->x += p->dx*time;
-  p->y += p->dy*time;
-
-  p->speed = 0;
-  //printf("x: %f   y: %f\n", p->x, p->y);
-  action_with_map(p);
-  sfVector2f pos = {p->x, p->y};
-  sfSprite_setPosition(p->sprite, pos);
 }
 
 void set_vec(sfVector2f* vec, float x, float y)
@@ -196,10 +225,12 @@ void set_vec(sfVector2f* vec, float x, float y)
 
 void* net_check(void* args)
 {
+  int net_data[3];
+  unsigned int data_size = sizeof(net_data);
   struct sockaddr_in servaddr;
   servaddr.sin_family = AF_INET; 
-  servaddr.sin_port = htons(RECV_PORT); 
-  servaddr.sin_addr.s_addr = INADDR_ANY;
+  servaddr.sin_port = htons(udp_server_port); 
+  servaddr.sin_addr.s_addr = inet_addr("192.168.0.3");
  
   int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
   if(sockfd<0)
@@ -210,20 +241,19 @@ void* net_check(void* args)
 
   socklen_t len = sizeof(struct sockaddr_in);
 
-
-  struct player* player1 = (struct player*)args;
-
-  int* buf = calloc(sizeof(int), 2);
+  struct player* players = (struct player*)args;
 
   while(1)
   {
-    recvfrom(sockfd, buf, sizeof(int) * 2, MSG_WAITALL,
-        (struct sockaddr*)&servaddr, &len);
-    //dir = atoi(buf);
-    player1->dir = buf[1];
-    printf("%d\n", player1->dir);
+    if(recvfrom(sockfd, net_data, data_size, 0, (struct sockaddr*)&servaddr,
+        &len) == -1)
+    {
+      perror("Recv from server");
+      exit(-1);
+    }
+    printf("Id: %d\nDir: %d\n", net_data[1], net_data[2]);
+    players[net_data[1]].dir = net_data[2];
   }
-
 }
 /*
  * Синхронизирующий поток, работает по TCP. Получает запрос от сервера на 
@@ -273,122 +303,213 @@ void* net_check(void* args)
 // 	}
 // }
 
+void set_text(sfText* text, const char* frmt, char* buf, float x, float y)
+{
+  sfVector2f vec = {0, 0};
+	char str[32];
+  sprintf(str, frmt, buf);
+  sfText_setString(text, str);
+  set_vec(&vec, x, y);
+  sfText_setPosition(text, vec);
+}
+
+void set_icon(sfSprite* icon, float x, float y)
+{
+  sfVector2f vec = {0, 0};
+  sfIntRect rect = {0, 0, 0, 0};
+  set_vec(&vec, x, y);
+  set_rect(&rect, 93, 1, 30, 30);
+  sfSprite_setTextureRect(icon, rect);
+  sfSprite_setPosition(icon, vec);
+}
+
+void set_netdata(int* net_data, int a, int b, int c)
+{
+  net_data[0] = a;
+  net_data[1] = b;
+  net_data[2] = c;
+}
+
 int main()
 {
-  /* Инициализировать массив структур player размером, равному числу игроков,
-   * полученному от сервера при коннекте к нему.
-   * Отрисовка будет происходить в главном потоке.
-   * В слушающем потоке будут приниматься ID игрока, что соответсвует номеру
-   * в массиве структур, и направление его движения.
-   * */
-	// Файловый дескриптор для подключения к серверу TCP
-  int fd;
-  int n;
-  int my_id;
-  int ready = 0;
-  int max_players = 0;
-  struct sockaddr_in server; 
-  //pthread_t sinc_thread_tid; 
-  if((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-      perror("Socket:");
-      exit(1);
-  }
+/*##############################################################################
+ * Объявление и определение/подготовка данных
+ *##############################################################################
+ */
+  int tcp_sockfd, udp_sockfd;
+  int my_id = 0;
+  char score[8];
+  int max_players = 2;
+  struct sockaddr_in server;
+  int net_data[3];
+  unsigned int data_size = sizeof(net_data);
+
   memset(&server, 0, sizeof(server));
-  server.sin_family    = AF_INET;  
-  server.sin_addr.s_addr = INADDR_ANY;
-  server.sin_port = htons(PORT);
-  
-  if(connect(fd, (struct sockaddr *)&server, sizeof(server)) == -1) {
-    perror("[main] connect");
+  server.sin_family = AF_INET;  
+  server.sin_addr.s_addr = inet_addr("192.168.0.3"); 
+  server.sin_port = htons(SERVER_PORT);
+/*##############################################################################
+ * Получение данных для настройки от сервера
+ *##############################################################################
+ */
+  if((tcp_sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+  {
+    perror("[main] TCP socket");
+    exit(1);
+  }
+  if((udp_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+  {
+    perror("[main] UDP socket");
     exit(1);
   }
 
-  printf("[main] connecting to server\n");
-  printf("[main] wait player_id\n");
-  if((n = recv(fd, &my_id, sizeof(int), 0)) == -1) 
+  printf("[main] - Connecting to server...\n");
+  if(connect(tcp_sockfd, (struct sockaddr*)&server, sizeof(server)) == -1)
+  {
+    perror("[main] connect");
+    exit(1);
+  }
+  printf("[main] - Successful connect\n");
+  printf("[main] - Wait data from server...\n");
+  if((recv(tcp_sockfd, net_data, data_size, 0)) == -1) 
   {
     perror("[main] Recv");
     exit(1);
   }
-  printf("[main] - Got player_id from server: %d \n", my_id);
-  //pthread_create(&sinc_thread_tid, NULL, sinc_thread, &player1);
-  if(send(fd, &ready, sizeof(int), 0) == -1) 
+  my_id = net_data[1];
+  udp_server_port = net_data[2];
+  server.sin_port = htons(udp_server_port);
+  printf("[main] - Id: %d\n       - Port: %d\n", my_id, udp_server_port);
+  set_netdata(net_data, 1, 1, 0);
+  if(send(tcp_sockfd, net_data, data_size, 0) == -1) 
   {
-    perror("Send");
+    perror("[main] Send");
     exit(1);
   }
-  if((n = recv(fd, &max_players, sizeof(int), 0)) == -1) 
+  printf("[main] - Wait all players...\n");
+  if((recv(tcp_sockfd, net_data, data_size, 0)) == -1) 
   {
     perror("[main] Recv");
     exit(1);
   }
-  printf("[main] - Got max_players from server: %d \n", max_players);
-  exit(0);
+  max_players = net_data[1];
+  printf("[main] - Max players: %d\n", max_players);
+/*##############################################################################
+ * Подготовка к началу игрового цикла 
+ *##############################################################################
+ */
+  /* Инициализация игроков */
   sfIntRect rect = {0, 0, 0, 0};
-  struct player* player1 = calloc(sizeof(struct player), 1);
-  struct player* player2 = calloc(sizeof(struct player), 1); 
-  set_rect(&rect, 1, 1, 30, 30);
-  init_player(player1, "textures/PacmanYellowEyes2.png", 30, 30, 19, 19, rect);
-  set_rect(&rect, 1, 93, 30, 30);
-  init_player(player2, "textures/PacmanRedEyes2.png", 26*30, 30, 19, 19, rect);
+  struct player* players = calloc(sizeof(struct player), max_players);
+  init_players(players, max_players, &rect);
   
+  /* Создание слушающего потока для принятия данных */
   pthread_t listen_thread;
-  pthread_create(&listen_thread, NULL, net_check, (void*)player2);
+  pthread_create(&listen_thread, NULL, net_check, (void*)players);
 
   sfVideoMode mode = {1150, 950, 32};
   sfRenderWindow* window;
   sfEvent event;
   sfVector2f vec = {0, 0};
 
+  /* Инициализация и создание карты */
   sfSprite* map_sprite = sfSprite_create();
   sfImage* map_image = sfImage_createFromFile("textures/Walls.png");
   sfTexture* map_texture = sfTexture_createFromImage(map_image, NULL);
   sfSprite_setTexture(map_sprite, map_texture, sfTrue);
 
+  /* Инициализация и создание текстовых данных */
+  sfText* score_text = sfText_create();
+  sfText_setColor(score_text, sfWhite);
+  sfText_setCharacterSize(score_text, 50);
+  sfFont* font = sfFont_createFromFile("textures/Font.otf");
+  sfText_setFont(score_text, font);
+
+  /* Создание окна */
   window = sfRenderWindow_create(mode, "PAC-MAN", sfResize | sfClose, NULL);
   
+  /* Создание часов CSFML */
   sfClock* clock = sfClock_create();
   if(!window)
     return 1;
-  /* Start the game loop */
+/*##############################################################################
+ * Начало игрового цикла
+ *##############################################################################
+ */
   while(sfRenderWindow_isOpen(window))
   {
+    /* Отслеживание времени */
     sfTime time = sfClock_getElapsedTime(clock);
     float ttime = sfTime_asMicroseconds(time);
     sfClock_restart(clock);
     ttime /= 800;
-    /* Process events */
+
+    /* Отслеживание события окна */
     while(sfRenderWindow_pollEvent(window, &event))
     {
-      /* Close window : exit */
       if(event.type == sfEvtClosed)
         sfRenderWindow_close(window);
     }
+
+    /* Обработка нажатых клавиш */
     if(sfKeyboard_isKeyPressed(sfKeyRight))
     {
-      player1->dir = 0;
+      //players[my_id].dir = 0;
+      set_netdata(net_data, 3, 0, 0);
+      if(sendto(udp_sockfd, net_data, data_size, 0, (struct sockaddr*)&server,
+          sizeof(struct sockaddr)) == -1)
+      {
+        perror("Send key to server");
+        exit(-1);
+      }
+      printf("Send right key\n");
     }
     if(sfKeyboard_isKeyPressed(sfKeyLeft))
     {
-      player1->dir = 1;
+      //players[my_id].dir = 1;
+      set_netdata(net_data, 3, 1, 0);
+      if(sendto(udp_sockfd, net_data, data_size, 0, (struct sockaddr*)&server,
+          sizeof(struct sockaddr)) == -1);
+      {
+        perror("Send key to server");
+        exit(-1);
+      }
+      printf("Send left key\n");
 
     }
     if(sfKeyboard_isKeyPressed(sfKeyUp))
     {
-      player1->dir = 3;
+      //players[my_id].dir = 3;
+      set_netdata(net_data, 3, 3, 0);
+      if(sendto(udp_sockfd, net_data, data_size, 0, (struct sockaddr*)&server,
+          sizeof(struct sockaddr)) == -1);
+      {
+        perror("Send key to server");
+        exit(-1);
+      }
+      printf("Send up key\n");
 
     }
     if(sfKeyboard_isKeyPressed(sfKeyDown))
     {
-      player1->dir = 2;
+      //players[my_id].dir = 2;
+      set_netdata(net_data, 3, 2, 0);
+      if(sendto(udp_sockfd, net_data, data_size, 0, (struct sockaddr*)&server,
+          sizeof(struct sockaddr)) == -1);
+      {
+        perror("Send key to server");
+        exit(-1);
+      }
+      printf("Send down key\n");
+
     }
 
-    update(player1, ttime);
-    update(player2, ttime);
-    /* Clear the screen */
+    update(players, ttime, max_players);
     sfRenderWindow_clear(window, sfBlack);
 
+    /* Отрисовка карты */
     for(int i = 0; i < HEIGHT_MAP; i++)
+    {
       for(int j = 0; j < WIDTH_MAP; j++)
       {
         if(map[i][j] == ' ')
@@ -399,58 +520,87 @@ int main()
         if(map[i][j] == '2')
         {
           set_rect(&rect, 30, 0, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect);
+          sfSprite_setTextureRect(map_sprite, rect); 
         }
         if(map[i][j] == '1')
         {
           set_rect(&rect, 60, 0, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect);
+          sfSprite_setTextureRect(map_sprite, rect); 
         }
         if(map[i][j] == '3')
         {
           set_rect(&rect, 120, 0, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect);
+          sfSprite_setTextureRect(map_sprite, rect); 
         }
         if(map[i][j] == '4')
         {
           set_rect(&rect, 150, 0, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect);
+          sfSprite_setTextureRect(map_sprite, rect); 
         }
         if(map[i][j] == '|')
         {
           set_rect(&rect, 0, 30, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect);
+          sfSprite_setTextureRect(map_sprite, rect); 
         }
         if(map[i][j] == '-')
         {
           set_rect(&rect, 60, 30, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect);
+          sfSprite_setTextureRect(map_sprite, rect); 
         }
         if(map[i][j] == 'd')
         {
           set_rect(&rect, 90, 60, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect);
+          sfSprite_setTextureRect(map_sprite, rect); 
         }
         if(map[i][j] == 'u')
         {
-          set_rect(&rect, 60, 60, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect);
+          sfSprite_setTextureRect(map_sprite, rect); 
         }
         if((map[i][j] == '*') || (map[i][j] == 't') || (map[i][j] == 'r'))
         {
           set_rect(&rect, 0, 0, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect);
+          sfSprite_setTextureRect(map_sprite, rect); 
         }
-        //printf("MAP: x:%d    y:%d\n", i*7, j*7);
         set_vec(&vec, j*30, i*30);
         sfSprite_setPosition(map_sprite, vec);
         sfRenderWindow_drawSprite(window, map_sprite, NULL);
+      }
     }
-    sfRenderWindow_drawSprite(window, player1->sprite, NULL);
-    sfRenderWindow_drawSprite(window, player2->sprite, NULL);
+
+    /* Отрисовка правого меню других игроков */
+    int place = 1;
+    for(int i=0; i < max_players; ++i)
+    {
+      sfRenderWindow_drawSprite(window, players[i].sprite, NULL);
+      if(i != my_id)
+      {
+        sprintf(score, "%d", players[i].score);
+        set_text(score_text, "Score:  %s\n", score, 900, 650 + (place * 40));
+        set_icon(players[i].icon_sprite, 850, 675 + (place * 40));
+        sfRenderWindow_drawSprite(window, players[i].sprite, NULL);
+        sfRenderWindow_drawSprite(window, players[i].icon_sprite, NULL);
+        sfRenderWindow_drawText(window, score_text, NULL);
+        ++place;
+      }
+    }
+
+    /* Отрисовка правого меню текущего игрока */
+    sprintf(score, "%d", players[my_id].score);
+    set_text(score_text, "You: \nScore:  %s\n", score, 850, 20);
+    set_icon(players[my_id].icon_sprite, 915, 48);
+    sfRenderWindow_drawSprite(window, players[my_id].icon_sprite, NULL);
+    sfRenderWindow_drawText(window, score_text, NULL);
     sfRenderWindow_display(window);
   }
-  /* Cleanup resources */
+/*##############################################################################
+ * Освобождение ресурсов
+ *##############################################################################
+ */
+  sfText_destroy(score_text);
+  sfFont_destroy(font);
   sfRenderWindow_destroy(window);
+  free(players);
+  close(tcp_sockfd);
+  close(udp_sockfd);
   return 0;
 }
