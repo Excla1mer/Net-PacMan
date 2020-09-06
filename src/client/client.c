@@ -232,7 +232,7 @@ void* net_check(void* args)
   struct sockaddr_in servaddr;
   servaddr.sin_family = AF_INET; 
   servaddr.sin_port = htons(1235); 
-  servaddr.sin_addr.s_addr = inet_addr("192.168.0.3");
+  servaddr.sin_addr.s_addr = inet_addr("185.255.132.26");
  
   socklen_t len = sizeof(struct sockaddr_in);
 
@@ -344,11 +344,11 @@ int main()
 
   memset(&server, 0, sizeof(server));
   server.sin_family = AF_INET;  
-  server.sin_addr.s_addr = inet_addr("192.168.0.3"); 
+  server.sin_addr.s_addr = inet_addr("185.255.132.26"); 
   server.sin_port = htons(SERVER_PORT);
 
   cliaddr.sin_family = AF_INET;
-  cliaddr.sin_addr.s_addr = inet_addr("192.168.0.3");
+  cliaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
   cliaddr.sin_port = htons(9974);
 /*##############################################################################
  * Получение данных для настройки от сервера
@@ -386,6 +386,7 @@ int main()
   }
   my_id = atoi(buf);
   printf("[main] - Id: %d\n", my_id);
+  sleep(10);
   if(send(tcp_sockfd, "1", 1, 0) == -1) 
   {
     perror("[main] Send");
@@ -418,7 +419,7 @@ int main()
     exit(1);
   }
   printf("%s\n", buf);
-  /*##############################################################################
+ /*##############################################################################
  * Подготовка к началу игрового цикла 
  *##############################################################################
  */
