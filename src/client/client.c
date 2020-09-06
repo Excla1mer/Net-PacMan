@@ -55,6 +55,8 @@ char colors[4][32] = {
   "textures/PacmanGreenEyes2.png\0"
 };
 
+int udp_server_port;
+
 struct player
 {
   int dir, last_dir, w, h, score;
@@ -64,8 +66,6 @@ struct player
   sfTexture* texture;
   sfImage* image;
 };
-
-int udp_server_port;
 
 struct player_stat
 {
@@ -99,6 +99,7 @@ void init_players(struct player* p, int max_players, sfIntRect* rect)
     p[i].h = h;
     p[i].speed = 0;
     p[i].dir = -1;
+    p[i].last_dir = -1;
     p[i].score = 0;
     p[i].image = sfImage_createFromFile(colors[i]);
     p[i].texture = sfTexture_createFromImage(p[i].image, NULL);
@@ -225,8 +226,7 @@ void set_vec(sfVector2f* vec, float x, float y)
 
 void* net_check(void* args)
 {
-  int net_data[3];
-  unsigned int data_size = sizeof(net_data);
+  char buf[32];
   struct sockaddr_in servaddr;
   servaddr.sin_family = AF_INET; 
   servaddr.sin_port = htons(udp_server_port); 
@@ -242,17 +242,17 @@ void* net_check(void* args)
   socklen_t len = sizeof(struct sockaddr_in);
 
   struct player* players = (struct player*)args;
-
+  memset(buf, '0', 32);
   while(1)
   {
-    if(recvfrom(sockfd, net_data, data_size, 0, (struct sockaddr*)&servaddr,
+    if(recvfrom(sockfd, buf, 32, 0, (struct sockaddr*)&servaddr,
         &len) == -1)
     {
       perror("Recv from server");
       exit(-1);
     }
-    printf("Id: %d\nDir: %d\n", net_data[1], net_data[2]);
-    players[net_data[1]].dir = net_data[2];
+    printf("Recv from server: %s\n", buf);
+    //players[net_data[1]].dir = net_data[2];
   }
 }
 /*
@@ -339,10 +339,10 @@ int main()
   int tcp_sockfd, udp_sockfd;
   int my_id = 0;
   char score[8];
-  int max_players = 2;
+  int max_players = 1;
   struct sockaddr_in server;
-  int net_data[3];
-  unsigned int data_size = sizeof(net_data);
+  char buf[32];
+  int net_data;
 
   memset(&server, 0, sizeof(server));
   server.sin_family = AF_INET;  
@@ -362,7 +362,7 @@ int main()
     perror("[main] UDP socket");
     exit(1);
   }
-
+  
   printf("[main] - Connecting to server...\n");
   if(connect(tcp_sockfd, (struct sockaddr*)&server, sizeof(server)) == -1)
   {
@@ -371,29 +371,28 @@ int main()
   }
   printf("[main] - Successful connect\n");
   printf("[main] - Wait data from server...\n");
-  if((recv(tcp_sockfd, net_data, data_size, 0)) == -1) 
+  memset(buf, '0', 32);
+  if((recv(tcp_sockfd, buf, 32, 0)) == -1) 
   {
     perror("[main] Recv");
     exit(1);
   }
-  my_id = net_data[1];
-  udp_server_port = net_data[2];
-  server.sin_port = htons(udp_server_port);
-  printf("[main] - Id: %d\n       - Port: %d\n", my_id, udp_server_port);
-  set_netdata(net_data, 1, 1, 0);
-  if(send(tcp_sockfd, net_data, data_size, 0) == -1) 
+  my_id = atoi(buf);
+  printf("[main] - Id: %d\n", my_id);
+  if(send(tcp_sockfd, "1", 1, 0) == -1) 
   {
     perror("[main] Send");
     exit(1);
   }
   printf("[main] - Wait all players...\n");
-  if((recv(tcp_sockfd, net_data, data_size, 0)) == -1) 
+  memset(buf, '0', 32);
+  if((recv(tcp_sockfd, buf, 32, 0)) == -1) 
   {
     perror("[main] Recv");
     exit(1);
   }
-  max_players = net_data[1];
-  printf("[main] - Max players: %d\n", max_players);
+  server.sin_port = htons(atoi(buf));
+  printf("[main] - Port: %s\n", buf);
 /*##############################################################################
  * Подготовка к началу игрового цикла 
  *##############################################################################
@@ -436,6 +435,7 @@ int main()
  * Начало игрового цикла
  *##############################################################################
  */
+  server.sin_port = htons(udp_server_port);
   while(sfRenderWindow_isOpen(window))
   {
     /* Отслеживание времени */
@@ -455,8 +455,7 @@ int main()
     if(sfKeyboard_isKeyPressed(sfKeyRight))
     {
       //players[my_id].dir = 0;
-      set_netdata(net_data, 3, 0, 0);
-      if(sendto(udp_sockfd, net_data, data_size, 0, (struct sockaddr*)&server,
+      if(sendto(udp_sockfd, "0", 1, 0, (struct sockaddr*)&server,
           sizeof(struct sockaddr)) == -1)
       {
         perror("Send key to server");
@@ -467,8 +466,7 @@ int main()
     if(sfKeyboard_isKeyPressed(sfKeyLeft))
     {
       //players[my_id].dir = 1;
-      set_netdata(net_data, 3, 1, 0);
-      if(sendto(udp_sockfd, net_data, data_size, 0, (struct sockaddr*)&server,
+      if(sendto(udp_sockfd, "0", 1, 0, (struct sockaddr*)&server,
           sizeof(struct sockaddr)) == -1);
       {
         perror("Send key to server");
@@ -480,8 +478,7 @@ int main()
     if(sfKeyboard_isKeyPressed(sfKeyUp))
     {
       //players[my_id].dir = 3;
-      set_netdata(net_data, 3, 3, 0);
-      if(sendto(udp_sockfd, net_data, data_size, 0, (struct sockaddr*)&server,
+      if(sendto(udp_sockfd, "0", 1, 0, (struct sockaddr*)&server,
           sizeof(struct sockaddr)) == -1);
       {
         perror("Send key to server");
@@ -493,8 +490,7 @@ int main()
     if(sfKeyboard_isKeyPressed(sfKeyDown))
     {
       //players[my_id].dir = 2;
-      set_netdata(net_data, 3, 2, 0);
-      if(sendto(udp_sockfd, net_data, data_size, 0, (struct sockaddr*)&server,
+      if(sendto(udp_sockfd, "0", 1, 0, (struct sockaddr*)&server,
           sizeof(struct sockaddr)) == -1);
       {
         perror("Send key to server");
