@@ -56,6 +56,7 @@ char colors[4][32] = {
 };
 
 int udp_server_port;
+int udp_sockfd;
 
 struct player
 {
@@ -226,33 +227,30 @@ void set_vec(sfVector2f* vec, float x, float y)
 
 void* net_check(void* args)
 {
+  printf("asdasdasd\n");
   char buf[32];
   struct sockaddr_in servaddr;
   servaddr.sin_family = AF_INET; 
-  servaddr.sin_port = htons(udp_server_port); 
+  servaddr.sin_port = htons(1235); 
   servaddr.sin_addr.s_addr = inet_addr("192.168.0.3");
  
-  int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-  if(sockfd<0)
-  {
-    perror("socket");
-    exit(-1);
-  }
-
   socklen_t len = sizeof(struct sockaddr_in);
 
   struct player* players = (struct player*)args;
   memset(buf, '0', 32);
   while(1)
   {
-    if(recvfrom(sockfd, buf, 32, 0, (struct sockaddr*)&servaddr,
+    if(recvfrom(udp_sockfd, buf, 32, 0, (struct sockaddr*)&servaddr,
         &len) == -1)
     {
       perror("Recv from server");
       exit(-1);
     }
     printf("Recv from server: %s\n", buf);
-    //players[net_data[1]].dir = net_data[2];
+    int a = buf[0] - '0';
+    int b = buf[1] - '0';
+    printf("id:%d   dir:%d\n", a, b);
+    players[a].dir = b;
   }
 }
 /*
@@ -336,11 +334,11 @@ int main()
  * Объявление и определение/подготовка данных
  *##############################################################################
  */
-  int tcp_sockfd, udp_sockfd;
+  int tcp_sockfd;
   int my_id = 0;
   char score[8];
   int max_players = 1;
-  struct sockaddr_in server;
+  struct sockaddr_in server, cliaddr;
   char buf[32];
   int net_data;
 
@@ -348,6 +346,10 @@ int main()
   server.sin_family = AF_INET;  
   server.sin_addr.s_addr = inet_addr("192.168.0.3"); 
   server.sin_port = htons(SERVER_PORT);
+
+  cliaddr.sin_family = AF_INET;
+  cliaddr.sin_addr.s_addr = inet_addr("192.168.0.3");
+  cliaddr.sin_port = htons(9974);
 /*##############################################################################
  * Получение данных для настройки от сервера
  *##############################################################################
@@ -362,6 +364,11 @@ int main()
     perror("[main] UDP socket");
     exit(1);
   }
+  
+  bind(tcp_sockfd, (struct sockaddr*)&cliaddr, sizeof(cliaddr));
+  perror("bind1");
+  bind(udp_sockfd, (struct sockaddr*)&cliaddr, sizeof(cliaddr));
+  perror("bind2");
   
   printf("[main] - Connecting to server...\n");
   if(connect(tcp_sockfd, (struct sockaddr*)&server, sizeof(server)) == -1)
@@ -391,9 +398,27 @@ int main()
     perror("[main] Recv");
     exit(1);
   }
+  if((recv(tcp_sockfd, buf, 32, 0)) == -1) 
+  {
+    perror("[main] Recv");
+    exit(1);
+  }
   server.sin_port = htons(atoi(buf));
+  udp_server_port = atoi(buf);
   printf("[main] - Port: %s\n", buf);
-/*##############################################################################
+  if((recv(tcp_sockfd, buf, 32, 0)) == -1) 
+  {
+    perror("[main] Recv");
+    exit(1);
+  }
+  printf("%s\n", buf);
+  if((recv(tcp_sockfd, buf, 32, 0)) == -1) 
+  {
+    perror("[main] Recv");
+    exit(1);
+  }
+  printf("%s\n", buf);
+  /*##############################################################################
  * Подготовка к началу игрового цикла 
  *##############################################################################
  */
@@ -452,49 +477,54 @@ int main()
     }
 
     /* Обработка нажатых клавиш */
-    if(sfKeyboard_isKeyPressed(sfKeyRight))
-    {
-      //players[my_id].dir = 0;
-      if(sendto(udp_sockfd, "0", 1, 0, (struct sockaddr*)&server,
-          sizeof(struct sockaddr)) == -1)
-      {
-        perror("Send key to server");
-        exit(-1);
-      }
-      printf("Send right key\n");
-    }
-    if(sfKeyboard_isKeyPressed(sfKeyLeft))
+    
+    if(sfKeyboard_isKeyPressed(sfKeyLeft)&& players[my_id].last_dir != 1)
     {
       //players[my_id].dir = 1;
-      if(sendto(udp_sockfd, "0", 1, 0, (struct sockaddr*)&server,
+      players[my_id].last_dir = 1;
+      if(sendto(udp_sockfd, "1", 1, 0, (struct sockaddr*)&server,
           sizeof(struct sockaddr)) == -1);
       {
-        perror("Send key to server");
-        exit(-1);
+        //perror("Send L key to server");
+        //exit(-1);
       }
       printf("Send left key\n");
 
     }
-    if(sfKeyboard_isKeyPressed(sfKeyUp))
+    if(sfKeyboard_isKeyPressed(sfKeyRight)&& players[my_id].last_dir != 0)
+    {
+      //players[my_id].dir = 0;
+      players[my_id].last_dir = 0;
+      if(sendto(udp_sockfd, "0", 1, 0, (struct sockaddr*)&server,
+          sizeof(server)) == -1)
+      {
+        //perror("Send R key to server");
+       // exit(-1);
+      }
+      printf("Send right key\n");
+    }
+    if(sfKeyboard_isKeyPressed(sfKeyUp) && players[my_id].last_dir != 3)
     {
       //players[my_id].dir = 3;
-      if(sendto(udp_sockfd, "0", 1, 0, (struct sockaddr*)&server,
+      players[my_id].last_dir = 3;
+      if(sendto(udp_sockfd, "3", 1, 0, (struct sockaddr*)&server,
           sizeof(struct sockaddr)) == -1);
       {
-        perror("Send key to server");
-        exit(-1);
+        //perror("Send U key to server");
+        //exit(-1);
       }
       printf("Send up key\n");
 
     }
-    if(sfKeyboard_isKeyPressed(sfKeyDown))
+    if(sfKeyboard_isKeyPressed(sfKeyDown)&& players[my_id].last_dir != 2)
     {
       //players[my_id].dir = 2;
-      if(sendto(udp_sockfd, "0", 1, 0, (struct sockaddr*)&server,
+      players[my_id].last_dir = 2;
+      if(sendto(udp_sockfd, "2", 1, 0, (struct sockaddr*)&server,
           sizeof(struct sockaddr)) == -1);
       {
-        perror("Send key to server");
-        exit(-1);
+        //perror("Send D key to server");
+        //exit(-1);
       }
       printf("Send down key\n");
 
