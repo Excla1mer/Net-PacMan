@@ -167,7 +167,7 @@ void *network_cl_handling()
         sizeof(server_addr_struct)) == 0)
     {
       pthread_mutex_unlock(&new_port_lock);
-      printf("[%s] - (UDP) Socket binded on port (%d)\n", section, new_port);
+      printf("[%s] - (UDP) Socket binded on port [%d]\n", section, new_port);
       break;
     }
     /*else
@@ -195,7 +195,7 @@ void *network_cl_handling()
   }
   else
   {
-    printf("[%s] - Notified client about new port (%d)\n", section, new_port);
+    printf("[%s] - Notified client about new port [%d]\n", section, new_port);
   }
 
   memset(net_data, 0, sizeof(net_data));
@@ -278,8 +278,10 @@ void *network_cl_handling()
        * очередь, дополненное ID клиента и указанием на тип данных
        */
       sprintf(formatted_data, "%d%d", client_id, net_data_int); /*"ID:%d|DIR:%s"*/
-      while (mq_send(net_mq_desc, formatted_data, strlen(formatted_data),
-                    0) != 0) {}
+      if (mq_send(net_mq_desc, formatted_data, strlen(formatted_data), 0) != 0)
+      {
+        printf("[%s] - MQ unavailable. Player data dropped.\n", section);
+      }
       memset(formatted_data, 0, sizeof(formatted_data));
       memset(net_data, 0, sizeof(net_data));
       net_data_int = -1;

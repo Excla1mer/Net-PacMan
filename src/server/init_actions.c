@@ -38,16 +38,18 @@ int launch_thread(pthread_t *tid, void *(*thread)(void *), const char *thread_na
    {
      if (count < MAX_ATTEMPTS)
      {
+       /*
        printf("[%s] - Failed to create (%s) thread."\
                "Retrying again in %d seconds...\n",
                section, thread_name, SLEEP_TIME);
+        */
        sleep(SLEEP_TIME);
        count++;
      }
      else
      {
-       printf("[%s] - Thread (%s) failed to start after %d attempts. "\
-              "Exiting program...\n",
+       perror("THREAD CREATE");
+       printf("[%s] - Thread (%s) failed to start after %d attempts.\n",
                section, thread_name, count+1);
        return -1;
      }
@@ -91,6 +93,7 @@ int close_thread(pthread_t tid, const char *thread_name)
      }
      else
      {
+       perror("THREAD CANCEL");
        printf("[%s] - Failed to cancel (%s) thread after %d attempts. "\
               "Proceeding anyway...\n",
                section, thread_name, count+1);
@@ -103,7 +106,7 @@ int close_thread(pthread_t tid, const char *thread_name)
    count = 0;
    while (pthread_join(tid, NULL) != 0)
    {
-     perror("JOIN");
+     perror("JOIN JOIN");
       if (count < MAX_ATTEMPTS)
       {
         /*
@@ -156,6 +159,7 @@ int close_sock(int sock, const char *sock_name)
    }
    else
    {
+     perror("SOCKET CLOSE");
      printf("[%s] - Unable to close (%s) socket. Proceeding anyway...\n",
              section, sock_name);
    }
