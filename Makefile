@@ -18,7 +18,6 @@ CLIENT_SOURCES := src/client/client.c
 CLIENT_LIBS := -lpthread -lcsfml-graphics -lcsfml-window -lcsfml-system
 
 .PHONY: all
-
 all: client server
 
 bins: server client
@@ -42,7 +41,7 @@ client_exec:
 	@./$(CLIENT)
 	@rm -rf $(CLIENT)
 
-
+.PHONY: clean
 clean:
 	@rm -rf *.o
 	@rm -rf $(SERVER) $(CLIENT)
