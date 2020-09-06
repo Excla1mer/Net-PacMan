@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <mqueue.h>
+#include <semaphore.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -35,7 +36,9 @@ void *input_handling()
   /*int count;*/
 
   printf("[%s] - Started\n", section);
-  printf("-------------Type /shut to exit the program-------------\n");
+  printf("########################################################\n"\
+        "-------------Type /shut to exit the program-------------\n"\
+        "########################################################\n");
   /*count = 0;*/
 
 /*##############################################################################

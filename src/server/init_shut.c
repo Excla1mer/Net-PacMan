@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <mqueue.h>
+#include <semaphore.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -105,15 +106,16 @@ int init_shut()
  if (network_dist_tid > 0)
  {
    close_thread(network_dist_tid, "NET DIST");
-   /* Уничтожение мьютекса */
-   pthread_mutex_destroy(&ready_count_lock);
-   pthread_mutex_destroy(&new_port_lock);
  }
 
  /* Поток сетевого контроля */
  if (network_control_tid > 0)
  {
    close_thread(network_control_tid, "NET CONTROL");
+   /* Уничтожение мьютексов и семафоров */
+   pthread_mutex_destroy(&ready_count_lock);
+   pthread_mutex_destroy(&new_port_lock);
+   sem_destroy(&endgame_lock);
  }
 
 /*##############################################################################
@@ -124,41 +126,13 @@ int init_shut()
   /* TCP сокет */
   if (tcp_sock_desc > 0)
   {
-    count = 0;
-    while (((result = close(tcp_sock_desc)) < 0) && (count < MAX_ATTEMPTS))
-    {
-      count++;
-      sleep(SLEEP_TIME);
-    }
-    if (result >= 0)
-    {
-      printf("[%s] - TCP socket closed\n", section);
-    }
-    else
-    {
-      printf("[%s] - Unable to close TCP socket. Proceeding anyway...\n",
-              section);
-    }
+    close_sock(tcp_sock_desc, "TCP");
   }
 
   /* UDP сокет */
   if (udp_sock_desc > 0)
   {
-    count = 0;
-    while (((result = close(udp_sock_desc)) < 0) && (count < MAX_ATTEMPTS))
-    {
-      count++;
-      sleep(SLEEP_TIME);
-    }
-    if (result >= 0)
-    {
-      printf("[%s] - UDP socket closed\n", section);
-    }
-    else
-    {
-      printf("[%s] - Unable to close UDP socket. Proceeding anyway...\n",
-              section);
-    }
+    close_sock(udp_sock_desc, "UDP");
   }
 
   /* Личные сокеты клиентов */
@@ -166,7 +140,7 @@ int init_shut()
   {
     if (udp_cl_sock_desc[count] > 0)
     {
-      sprintf(name, "CL UDP#%d", count);
+      sprintf(name, "UDP CL#%d", count);
       close_sock(udp_cl_sock_desc[count], name);
       memset(name, 0, sizeof(name));
     }

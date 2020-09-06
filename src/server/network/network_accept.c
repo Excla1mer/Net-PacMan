@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <mqueue.h>
+#include <semaphore.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -61,8 +62,9 @@ void *network_accept()
          * Теперь максимальный ID можно повысить на единицу.
          */
         client_max_id++;
-        printf("[%s] - (TCP) Client [%s] connected\n", section,
-                inet_ntoa(net_client_addr[client_max_id].sin_addr));
+        printf("[%s] - (TCP) Client [%s:%d] connected\n", section,
+                inet_ntoa(net_client_addr[client_max_id].sin_addr),
+                ntohs(net_client_addr[client_max_id].sin_port));
 
         /*
          * Присвоенный здесь же ID отправляется в очередь сообщений.

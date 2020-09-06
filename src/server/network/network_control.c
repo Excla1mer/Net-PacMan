@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <mqueue.h>
+#include <semaphore.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -33,8 +34,10 @@ void *network_control()
 
   int count;
   char net_data[50];
+  char name[9];
 
   memset(net_data, 0, sizeof(net_data));
+  memset(name, 0, sizeof(name));
 
   printf("[%s] - Started\n", section);
 
@@ -94,7 +97,7 @@ void *network_control()
   pthread_cancel(network_accept_tid);
   pthread_join(network_accept_tid, NULL);
   network_accept_tid = 0;
-  printf("[%s] - NET accept thread canceled and joined\n", section);
+  printf("[%s] - (NET ACCEPT) thread canceled and joined\n", section);
 
   /*
    * Небольшая пауза даёт возможность потокам клиентов отослать своим подопечным
@@ -103,7 +106,7 @@ void *network_control()
   sleep(SLEEP_TIME);
 
   /* Оповещение клиентов о готовности начать и количестве игроков. */
-  sprintf(net_data, "START_%d", client_max_id + 1);
+  sprintf(net_data, "%d", client_max_id + 1); /* "START:%d" */
   for (count = 0; count <= client_max_id; count++)
   {
     send(net_client_desc[count], net_data, 7, 0);
@@ -119,6 +122,40 @@ void *network_control()
      * вовсе, оставив решения пользователю.
      */
   }
+
+/*##############################################################################
+ * Конец игры
+ *##############################################################################
+ */
+
+  /*
+   * Поток блоируется в ожидании разблокировки семафора. Его разблокирует один
+   * из клиентских потоков, когда установит конец игры.
+   */
+  sem_wait((sem_t *)&endgame_lock);
+  printf("[%s] - Endgame reached\n", section);
+
+  /* Закрываются ненужные теперь потоки и сокеты. */
+  /* Клиентские потоки */
+  for (count = 0; count <= client_max_id; count++)
+  {
+    sprintf(name, "NET CL#%d", count);
+    close_thread(network_cl_handling_tid[count], name);
+    network_cl_handling_tid[count] = 0;
+  }
+
+  /* Личные сокеты клиентов */
+  for (count = 0; count <= client_max_id; count++)
+  {
+    sprintf(name, "UDP CL#%d", count);
+    close_sock(udp_cl_sock_desc[count], name);
+    memset(name, 0, sizeof(name));
+    udp_cl_sock_desc[count] = 0;
+  }
+
+  /* Поток сетевой рассылки */
+  close_thread(network_dist_tid, "NET DIST");
+  network_dist_tid = 0;
 
 
   /* ЗАГЛУШКА */

@@ -14,6 +14,8 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <mqueue.h>
+#include <semaphore.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -28,10 +30,15 @@ void *network_cl_handling()
  * Объявление и определение/подготовка данных
  *##############################################################################
  */
-  const char *section = "NET CL";
+
+  /* Префикс имени секции */
+  const char *section_prefix = "NET CL";
+  /* Реальное имя секции. Будет собрано, после получения ID клиента. */
+  char section[9];
 
   int client_id;
   int count;
+  int net_data_int;
   unsigned int new_port;
   char net_data[50];
   char formatted_data[100];
@@ -40,6 +47,8 @@ void *network_cl_handling()
 
   memset(net_data, 0, sizeof(net_data));
   memset(formatted_data, 0, sizeof(formatted_data));
+  memset(section, 0, sizeof(section));
+  net_data_int = -1;
 
 /*##############################################################################
  * Первичное общение (отсылка ID)
@@ -51,9 +60,14 @@ void *network_cl_handling()
     {
       client_id = atoi(net_data);
       memset(net_data, 0, sizeof(net_data));
-      printf("[%s#%d] - Started\n", section, client_id);
-      printf("[%s#%d] - Hadling Player#%d (%s)\n", section, client_id,
-              client_id, inet_ntoa(net_client_addr[client_id].sin_addr));
+
+      /* Из префикса и ID собирается имя секции */
+      sprintf(section, "%s#%d", section_prefix, client_id);
+
+      printf("[%s] - Started\n", section);
+      printf("[%s] - Hadling Player#%d [%s:%d]\n", section, client_id,
+              inet_ntoa(net_client_addr[client_id].sin_addr),
+              ntohs(net_client_addr[client_id].sin_port));
       break;
     }
   }
@@ -62,11 +76,11 @@ void *network_cl_handling()
    * Отсылка данных в виде строки. Таким образом можно описать вначале тип
    * данных, а затем указать сами данные.
    */
-  sprintf(net_data, "ID:%d", client_id);
+  sprintf(net_data, "%d", client_id); /* "ID:%d" */
   while ((send(net_client_desc[client_id], net_data,
               sizeof(net_data), 0)) == -1) {}
-  printf("[%s#%d] - Notified client about it's ID\n", section, client_id);
   memset(net_data, 0, sizeof(net_data));
+  printf("[%s] - Notified client about it's ID\n", section);
 
 /*##############################################################################
  * Ожидание начала игры
@@ -76,12 +90,12 @@ void *network_cl_handling()
   /*
    * TCP - ожидание от клиента сообщения о готовности начать (START)
    */
-  printf("[%s#%d] - Waiting for client to get ready\n", section, client_id);
+  printf("[%s] - Waiting for client to get ready\n", section);
   while(1)
   {
     if(recv(net_client_desc[client_id], net_data, 50, 0) > 0)
     {
-      /*printf("[%s#%d] - (TCP) Message from (%s): %s", section, client_id,
+      /*printf("[%s] - (TCP) Message from (%s): %s", section,
               inet_ntoa(net_client_addr[client_id].sin_addr), net_data);*/
 
 /* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -89,9 +103,9 @@ void *network_cl_handling()
  * отсылать \n
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  */
-      if(strcmp(net_data, "READY") == 0)
+      if(strcmp(net_data, "1") == 0)
       {
-        printf("[%s#%d] - Client ready to start\n", section, client_id);
+        printf("[%s] - Client ready to start\n", section);
         /*
          * Аккуратно, через мьютекс, повышается число готовых начать клиентов
          * на единицу. За этим числом следит поток сетевого контроля
@@ -130,7 +144,7 @@ void *network_cl_handling()
   }
   else
   {
-    printf("[%s#%d] - (UDP) Socket created\n", section, client_id);
+    printf("[%s] - (UDP) Socket created\n", section);
   }
 
   /*
@@ -153,8 +167,7 @@ void *network_cl_handling()
         sizeof(server_addr_struct)) == 0)
     {
       pthread_mutex_unlock(&new_port_lock);
-      printf("[%s#%d] - (UDP) Socket binded on port (%d)\n",
-              section, client_id, new_port);
+      printf("[%s] - (UDP) Socket binded on port (%d)\n", section, new_port);
       break;
     }
     /*else
@@ -164,9 +177,9 @@ void *network_cl_handling()
     pthread_mutex_unlock(&new_port_lock);
     if (count == sizeof(int))
     {
-      printf("[%s#%d] - (UDP) Exeeded (int) range while serching for port! "\
+      printf("[%s] - (UDP) Exeeded (int) range while serching for port! "\
               "Retrying from beginig...\n",
-              section, client_id);
+              section);
       count = 1;
     }
   }
@@ -174,7 +187,7 @@ void *network_cl_handling()
    * Уведомление клиента о выбраном порте. Используется тот же TCP - сокет, что
    * и для уведомления об ID.
    */
-  sprintf(net_data, "PORT:%d", new_port);
+  sprintf(net_data, "%d", new_port); /* "PORT:%d" */
   if ((send(net_client_desc[client_id], net_data,
               sizeof(net_data), 0)) == -1)
   {
@@ -182,7 +195,7 @@ void *network_cl_handling()
   }
   else
   {
-    printf("[%s#%d] - Notified client about new port\n", section, client_id);
+    printf("[%s] - Notified client about new port (%d)\n", section, new_port);
   }
 
   memset(net_data, 0, sizeof(net_data));
@@ -196,7 +209,7 @@ void *network_cl_handling()
   }
   else
   {
-    printf("[%s#%d] - (UDP) Socket connected\n", section, client_id);
+    printf("[%s] - (UDP) Socket connected\n", section);
   }
 
 /*##############################################################################
@@ -211,7 +224,7 @@ void *network_cl_handling()
  */
 
   /* Можно начать слушать собственный сокет. */
-  printf("[%s#%d] - Listening client via UDP\n", section, client_id);
+  printf("[%s] - Listening client via UDP\n", section);
   while(1)
   {
     /*
@@ -223,18 +236,53 @@ void *network_cl_handling()
                 &net_client_addr_size[client_id]) > 0)*/
     if(recv(udp_cl_sock_desc[client_id], net_data, 50, 0) > 0)
     {
-      printf("[%s#%d] - (UDP) Message from (%s): %s", section, client_id,
-              inet_ntoa(net_client_addr[client_id].sin_addr), net_data);
+      net_data_int = atoi(net_data);
+      printf("[%s] - (UDP) Message from [%s:%d]: %d\n", section,
+              inet_ntoa(net_client_addr[client_id].sin_addr),
+              ntohs(net_client_addr[client_id].sin_port),
+              net_data_int);
+
+      /* Проверка, было ли это сообщение, о конце игры. */
+      /*if (strcmp(net_data, "9") == 0) */ /* "ENDGAME" */
+      if (net_data_int == 9)
+      {
+        printf("[%s] - Player ends the game\n", section);
+
+        /*
+         * Нужно отправить остальным клиентам сообщение о конце игры.
+         */
+        sprintf(formatted_data, "%d%d", client_id, net_data_int); /*"ID:%d|%s"*/
+        while (mq_send(net_mq_desc, formatted_data, strlen(formatted_data),
+                      0) != 0) {}
+        memset(formatted_data, 0, sizeof(formatted_data));
+        memset(net_data, 0, sizeof(net_data));
+        net_data_int = -1;
+
+        /*
+         * Инкрементировать(разблокировать) семафор под самый конец, чтобы не
+         * закрыться из "network_control" раньше времени
+         */
+        sem_post(&endgame_lock);
+        /*
+         * Не слишком красиво, но поток будет просто спать. Его окончат в
+         * "network_control" */
+        while(1)
+        {
+          sleep(10);
+        }
+      }
+
       /*
        * Отправка данных в очередь сообщений. Считается, что из сети, от
        * клиента, было получено его направление движения. Оно отправляется в
        * очередь, дополненное ID клиента и указанием на тип данных
        */
-      sprintf(formatted_data, "ID:%d|DIR:%s", client_id, net_data);
+      sprintf(formatted_data, "%d%d", client_id, net_data_int); /*"ID:%d|DIR:%s"*/
       while (mq_send(net_mq_desc, formatted_data, strlen(formatted_data),
                     0) != 0) {}
       memset(formatted_data, 0, sizeof(formatted_data));
       memset(net_data, 0, sizeof(net_data));
+      net_data_int = -1;
     }
   }
 }

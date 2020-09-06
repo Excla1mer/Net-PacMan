@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <mqueue.h>
+#include <semaphore.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -216,7 +217,7 @@ int main()
     if ((net_mq_desc = mq_open(NET_MQ, O_RDWR | O_CREAT | O_NONBLOCK, 0655,
       &queueAttr)) == -1)
       {
-        perror("LOCAL MQ");
+        perror("NET MQ");
         break;
       }
     printf("[%s] - Network message queue created\n", section);
@@ -246,6 +247,8 @@ int main()
   }
   ready_count_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
   new_port_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
+  /* Семафор на старте уже нулевой, то есть занятый */
+  sem_init(&endgame_lock, 0, 0);
 
 /*##############################################################################
  * Свободное ожидание
