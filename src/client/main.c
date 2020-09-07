@@ -13,6 +13,7 @@
 #include "player.h"
 #include "help_sets.h"
 #include "map.h"
+#include "../net_data_defs.h"
 
 #define SERVER_PORT 1234  // порт сервера
 
@@ -52,6 +53,8 @@ void set_netdata(int* net_data, int a, int b, int c)
   net_data[2] = c;
 }
 
+void *client_check(void *param);
+
 int main()
 {
 /*##############################################################################
@@ -64,7 +67,9 @@ int main()
   char score[8];
   int max_players = 4;
   struct sockaddr_in server, cliaddr;
-  char *buf = calloc(5, 1);
+  char input[50];
+  //char *buf = calloc(5, 1);
+  int net_data[3];
 
   memset(&server, 0, sizeof(server));
   server.sin_family = AF_INET;  
@@ -107,29 +112,64 @@ int main()
   }
   printf("[main] - Successful connect\n");
   printf("[main] - Wait data from server...\n");
-  bzero(buf, 5);
-  if((recv(tcp_sockfd, buf, 5, 0)) == -1) 
+  memset(net_data, 0, sizeof(net_data));
+  if((recv(tcp_sockfd, net_data, sizeof(net_data), 0)) == -1) 
   {
     perror("[main] Recv");
     exit(1);
   }
-  my_id = atoi(buf);
-  printf("[main] - Id: %d\n", my_id);
-  if(send(tcp_sockfd, "0001", 5, TCP_NODELAY) == -1) 
+  if(net_data[0] == ID_PORT)
   {
-    perror("[main] Send");
-    exit(1);
+    printf("[main] - Got Id_PORT [%d:%d]\n", net_data[1], net_data[2]);
+    my_id = net_data[1];
+    udp_server_port = net_data[2];
+  }
+  else 
+  {
+    printf("[main] - Got wrong message %d %d %d\n", net_data[0], net_data[1],
+          net_data[2]);
+  }
+  server.sin_port = htons(udp_server_port);
+  /* Поток для обработки состояний поключившихся и нажавших READY клиентов */
+  pthread_t client_check_tid;
+  pthread_create(&client_check_tid, NULL, client_check, &tcp_sockfd);
+
+  while(1)
+  {
+    memset(input, '\0', sizeof(input));
+    fgets(input, 50, stdin);
+
+    if(strcmp(input, "READY\n") == 0)
+    {
+      printf("[main] - Send READY to server\n");
+      net_data[0] = READY;
+      net_data[1] = -1;
+      net_data[2] = -1;
+      if(send(tcp_sockfd, net_data, sizeof(net_data), TCP_NODELAY) == -1) 
+      {
+        perror("[main] Send");
+        exit(1);
+      }
+      break;
+    }
   }
   printf("[main] - Wait all players...\n");
-  bzero(buf, 5);
+  pthread_join(client_check_tid, NULL);
+  // printf("[main] - Id: %d\n", my_id);
+  // if(send(tcp_sockfd, "0001", 5, TCP_NODELAY) == -1) 
+  // {
+  //   perror("[main] Send");
+  //   exit(1);
+  // }
+  // printf("[main] - Wait all players...\n");
+  // bzero(buf, 5);
 
-  while((recv(tcp_sockfd, buf, 5, 0)) == 0){}
-  server.sin_port = htons(atoi(buf));
-  udp_server_port = atoi(buf);
-  printf("[main] - Port: %s\n", buf);
+  // while((recv(tcp_sockfd, buf, 5, 0)) == 0){}
+  
+  // printf("[main] - Port: %s\n", buf);
 
-  while((recv(tcp_sockfd, buf, 5, 0)) == 0){}
-  printf("[main] - Some data: %s\n", buf);
+  // while((recv(tcp_sockfd, buf, 5, 0)) == 0){}
+  // printf("[main] - Some data: %s\n", buf);
 /*##############################################################################
  * Подготовка к началу игрового цикла 
  *##############################################################################
