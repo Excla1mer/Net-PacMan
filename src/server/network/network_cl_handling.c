@@ -18,6 +18,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <limits.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
@@ -42,22 +43,20 @@ void *network_cl_handling()
   int count;
 
   /* Массив сетевых данных, передаваемый между клиентом и потоком */
-  int net_data_int[NET_DATA_SIZE];
+  int net_data[NET_DATA_SIZE];
   /* Указатели на различные данные в массиве. (для удобства обращения) */
-  int *type = &net_data_int[0];
-  int *data1 = &net_data_int[1];
-  int *data2 = &net_data_int[2];
+  int *type = &net_data[0];
+  int *data1 = &net_data[1];
+  int *data2 = &net_data[2];
 
   unsigned int new_port;
 
-  char mq_data[NET_DATA_SIZE + 1];
 
   for (count = 0; count < NET_DATA_SIZE; count++)
   {
-    net_data_int[count] = -1;
+    net_data[count] = -1;
   }
   memset(section, 0, sizeof(section));
-  memset(mq_data, 0, sizeof(mq_data));
 
   count = 0;
 
@@ -107,7 +106,7 @@ void *network_cl_handling()
    * Процесс привязки сокета:
    * Сервер начинает перебирать порт, пытаясь найти свободный
    */
-  for(count = 1; count <= sizeof(int); count++)
+  while(1)
   {
     /*
      * Новый порт опирается на тот, что уже записан в глобальной структуре.
@@ -115,7 +114,17 @@ void *network_cl_handling()
      * перебор минуя уже опробованые порты.
      */
     pthread_mutex_lock(&new_port_lock);
-    new_port = ntohs(server_addr_struct.sin_port) + count;
+    new_port = ntohs(server_addr_struct.sin_port) + 1;
+
+    /* Проверка, не вышел ли новый порт за границы численного диапозона. */
+    if (new_port == UINT_MAX)
+    {
+      printf("[%s] - (UDP) Exeeded (uint) range while serching for port! "\
+              "Retrying from beginig...\n",
+              section);
+      new_port = SERVER_PORT + 1;
+    }
+
     server_addr_struct.sin_port = htons(new_port);
 
     /* Попытка привязки сокета */
@@ -126,19 +135,7 @@ void *network_cl_handling()
       printf("[%s] - (UDP) Socket binded on port [%d]\n", section, new_port);
       break;
     }
-    /*else
-    {
-      perror("UDP BIND");
-    }*/
     pthread_mutex_unlock(&new_port_lock);
-    if (new_port == sizeof(int) || count == sizeof(int))
-    {
-      printf("[%s] - (UDP) Exeeded (int) range while serching for port! "\
-              "Retrying from beginig...\n",
-              section);
-      new_port = 1000;
-      count = 1;
-    }
   }
 
   /*
@@ -147,8 +144,8 @@ void *network_cl_handling()
   *type = ID_PORT;
   *data1 = client_id;
   *data2 = new_port;
-  if ((send(net_client_desc[client_id], net_data_int,
-              sizeof(net_data_int), TCP_NODELAY)) == -1)
+  if ((send(net_client_desc[client_id], net_data,
+              sizeof(net_data), TCP_NODELAY)) == -1)
   {
     perror("UDP SEND PORT");
   }
@@ -160,7 +157,7 @@ void *network_cl_handling()
   }
   for (count = 0; count < NET_DATA_SIZE; count++)
   {
-    net_data_int[count] = -1;
+    net_data[count] = -1;
   }
 
   /* Привязка сокета */
@@ -187,13 +184,13 @@ void *network_cl_handling()
   printf("[%s] - Waiting for client to get ready\n", section);
   while(1)
   {
-    if(recv(net_client_desc[client_id], net_data_int, sizeof(net_data_int),
+    if(recv(net_client_desc[client_id], net_data, sizeof(net_data),
             0) > 0)
     {
       /*printf("[%s] - (TCP) Message from [%s:%d]: %d/%d/%d\n", section,
               inet_ntoa(net_client_addr[client_id].sin_addr),
               ntohs(net_client_addr[client_max_id].sin_port),
-              net_data_int[0], net_data_int[1], net_data_int[2]);*/
+              net_data[0], net_data[1], net_data[2]);*/
 
       if(*type == READY)
       {
@@ -213,8 +210,8 @@ void *network_cl_handling()
         *data2 = ready_count; /* Общее число готовых клиентов */
         for(count = 0; count <= client_max_id; count++)
         {
-          if ((send(net_client_desc[count], net_data_int,
-                      sizeof(net_data_int), TCP_NODELAY)) == -1)
+          if ((send(net_client_desc[count], net_data,
+                      sizeof(net_data), TCP_NODELAY)) == -1)
           {
             perror("TCP SEND NEW CONNECT");
           }
@@ -222,7 +219,7 @@ void *network_cl_handling()
 
         for (count = 0; count < NET_DATA_SIZE; count++)
         {
-          net_data_int[count] = -1;
+          net_data[count] = -1;
         }
         /* Цикл вечного ожидания обрывается */
         break;
@@ -249,13 +246,13 @@ void *network_cl_handling()
      * Личный сокет клиента теперь привязан к нему, так что можно не указывать
      * адрес, а просто отсылать в сокет.
      */
-    if(recv(udp_cl_sock_desc[client_id], net_data_int, sizeof(net_data_int),
+    if(recv(udp_cl_sock_desc[client_id], net_data, sizeof(net_data),
             0) > 0)
     {
       /*printf("[%s] - (UDP) Message from [%s:%d]: %d/%d/%d\n", section,
               inet_ntoa(net_client_addr[client_id].sin_addr),
               ntohs(net_client_addr[client_max_id].sin_port),
-              net_data_int[0], net_data_int[1], net_data_int[2]);*/
+              net_data[0], net_data[1], net_data[2]);*/
 
       /*
        * Проверка, было ли это сообщение, о конце игры.
@@ -269,8 +266,8 @@ void *network_cl_handling()
         *data1 = client_id; /* Номер клиента */
         for(count = 0; count < client_max_id; count++)
         {
-          if ((send(net_client_desc[count], net_data_int,
-                      sizeof(net_data_int), TCP_NODELAY)) == -1)
+          if ((send(net_client_desc[count], net_data,
+                      sizeof(net_data), TCP_NODELAY)) == -1)
           {
             perror("TCP SEND ENDGAME");
           }
@@ -286,21 +283,20 @@ void *network_cl_handling()
       /* Клиент мог и не обозначить все эти данные. Сервер уточняет их. */
       *type = CL_DIR;
       *data1 = client_id;
-      *data2 = net_data_int[2];
+      *data2 = net_data[2];
       /*
        * Отправка данных в очередь сообщений. Здесь не важно, что эти данные
        * значат, их всё равно нужно разослать.
        */
-      if (mq_send(net_mq_desc, (char *)&net_data_int, sizeof(net_data_int), 0)
+      if (mq_send(net_mq_desc, (char *)&net_data, sizeof(net_data), 0)
                   != 0)
       {
         printf("[%s] - MQ unavailable. Player data dropped.\n", section);
       }
       for (count = 0; count < NET_DATA_SIZE; count++)
       {
-        net_data_int[count] = -1;
+        net_data[count] = -1;
       }
-      memset(mq_data, 0 ,sizeof(mq_data));
     }
   }
   /*
