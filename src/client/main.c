@@ -16,10 +16,11 @@
 #include "../net_data_defs.h"
 
 #define SERVER_PORT 1234  // порт сервера
-
+#define SERVER_ADDR "10.0.2.20"
+//"185.255.132.26"
 int udp_server_port;
 int udp_sockfd;
-int max_players;
+
 
 void* net_check(void* args)
 {
@@ -73,7 +74,7 @@ int main()
 
   memset(&server, 0, sizeof(server));
   server.sin_family = AF_INET;  
-  server.sin_addr.s_addr = inet_addr("185.255.132.26"); 
+  server.sin_addr.s_addr = inet_addr(SERVER_ADDR); 
   server.sin_port = htons(SERVER_PORT);
 
   cliaddr.sin_family = AF_INET;
@@ -155,6 +156,7 @@ int main()
   }
   printf("[main] - Wait all players...\n");
   pthread_join(client_check_tid, NULL);
+  printf("[main] - max_players: %d\n", max_players);
   // printf("[main] - Id: %d\n", my_id);
   // if(send(tcp_sockfd, "0001", 5, TCP_NODELAY) == -1) 
   // {

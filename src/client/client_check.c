@@ -8,7 +8,7 @@
 #include <stdlib.h>
 
 #include "../net_data_defs.h"
-extern int max_players;
+
 void *client_check(void *param)
 {
   int net_data[3];

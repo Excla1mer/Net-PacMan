@@ -10,4 +10,6 @@
 #define CL_READY 3
 #define CL_CONNECT 4
 
+int max_players;
+
 #endif /* NET_DATA_DEFS_H */
