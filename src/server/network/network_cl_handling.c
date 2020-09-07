@@ -41,7 +41,7 @@ void *network_cl_handling()
   int count;
   int net_data_int;
   unsigned int new_port;
-  char net_data[50];
+  char net_data[5];
   char formatted_data[100];
 
   count = 0;
@@ -77,7 +77,7 @@ void *network_cl_handling()
    * Отсылка данных в виде строки. Таким образом можно описать вначале тип
    * данных, а затем указать сами данные.
    */
-  sprintf(net_data, "%d", client_id); /* "ID:%d" */
+  sprintf(net_data, "000%d", client_id); /* "ID:%d" */
   while ((send(net_client_desc[client_id], net_data,
               sizeof(net_data), TCP_NODELAY)) == -1) {}
   memset(net_data, 0, sizeof(net_data));
@@ -94,7 +94,7 @@ void *network_cl_handling()
   printf("[%s] - Waiting for client to get ready\n", section);
   while(1)
   {
-    if(recv(net_client_desc[client_id], net_data, 50, 0) > 0)
+    if(recv(net_client_desc[client_id], net_data, sizeof(net_data), 0) > 0)
     {
       /*printf("[%s] - (TCP) Message from (%s): %s", section,
               inet_ntoa(net_client_addr[client_id].sin_addr), net_data);*/
@@ -104,7 +104,7 @@ void *network_cl_handling()
  * отсылать \n
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  */
-      if(strcmp(net_data, "1") == 0)
+      if(strcmp(net_data, "0001") == 0)
       {
         printf("[%s] - Client ready to start\n", section);
         /*
