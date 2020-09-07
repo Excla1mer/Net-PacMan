@@ -14,7 +14,10 @@ SERVER_SOURCES := src/server/main.c\
 SERVER_LIBS := -lpthread -lrt
 
 CLIENT := bin/client
-CLIENT_SOURCES := src/client/client.c
+CLIENT_SOURCES := src/client/main.c\
+									src/client/map.c\
+									src/client/help_sets.c\
+									src/client/player.c
 CLIENT_LIBS := -lpthread -lcsfml-graphics -lcsfml-window -lcsfml-system
 
 .PHONY: all
