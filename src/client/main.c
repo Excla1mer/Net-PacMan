@@ -19,6 +19,7 @@
 
 int udp_server_port;
 int udp_sockfd;
+int max_players;
 
 void* net_check(void* args)
 {
@@ -65,7 +66,6 @@ int main()
   int tcp_sockfd;
   int my_id = 0;
   char score[8];
-  int max_players = 4;
   struct sockaddr_in server, cliaddr;
   char input[50];
   //char *buf = calloc(5, 1);

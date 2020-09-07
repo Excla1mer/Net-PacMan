@@ -8,7 +8,7 @@
 #include <stdlib.h>
 
 #include "../net_data_defs.h"
-
+extern int max_players;
 void *client_check(void *param)
 {
   int net_data[3];
@@ -30,13 +30,14 @@ void *client_check(void *param)
     }
     if(net_data[0] == CL_READY)
     {
-      ready_players = net_data[1];
+      ready_players = net_data[2];
       printf("[client_check] - PLAYERS IN LOBBY : %d\n", connected_players);
       printf("               - PLAYERS READY    : %d\n", ready_players);
     }
     if(net_data[0] == CL_CONNECT)
     {
       connected_players = net_data[1];
+      max_players = connected_players;
       printf("[client_check] - PLAYERS IN LOBBY : %d\n", connected_players);
       printf("               - PLAYERS READY    : %d\n", ready_players);
     }
