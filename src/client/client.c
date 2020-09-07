@@ -9,44 +9,9 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
-#define HEIGHT_MAP 31     // размер карты высота
-#define WIDTH_MAP 28      // размер карты ширина
-#define BLOCK 30          // размер блока
-#define SERVER_PORT 1234  // порт сервера
+#include "map.h"
 
-char map[HEIGHT_MAP][WIDTH_MAP] = {
-	"1------------21------------2",
-	"|            ||            |",
-	"| 1--2 1---2 || 1---2 1--2 |",
-	"| |**| |***| || |***| |**| |",
-	"| 4--3 4---3 43 4---3 4--3 |",
-	"|                          |",
-	"| 1--2 12 1------2 12 1--2 |",
-	"| 4--3 || 4--21--3 || 4--3 |",
-	"|      ||    ||    ||      |",
-	"4----2 |4--2 || 1--3| 1----3",
-	"*****| |1--3 43 4--2| |*****",
-	"*****| ||          || |*****",
-	"*****| || 1------2 || |*****",
-	"d----3 43 |******| 43 4----u",
-	"r*****    |******|    *****l",
-	"d----2 12 |******| 12 1----u",
-	"*****| || 4------3 || |*****",
-	"*****| ||          || |*****",
-	"*****| || 1------2 || |*****",
-	"1----3 43 4--21--3 43 4----2",
-	"|            ||            |",
-	"| 1--2 1---2 || 1---2 1--2 |",
-	"| 4-2| 4---3 43 4---3 |1-3 |",
-	"|   ||                ||   |",
-	"4-2 || 12 1------2 12 || 1-3",
-	"1-3 43 || 4--21--3 || 43 4-2",
-	"|      ||    ||    ||      |",
-	"| 1----34--2 || 1--34----2 |",
-	"| 4--------3 43 4--------3 |",
-	"|                          |",
-	"4--------------------------3",
-};
+#define SERVER_PORT 1234  // порт сервера
 
 char colors[4][32] = {
   "textures/PacmanYellowEyes2.png\0",
@@ -66,13 +31,6 @@ struct player
   sfSprite* icon_sprite;
   sfTexture* texture;
   sfImage* image;
-};
-
-struct player_stat
-{
-  float x;
-  float y;
-  int score;
 };
 
 void set_rect(sfIntRect* rectangle, int l, int t, int w, int h)
@@ -227,11 +185,10 @@ void set_vec(sfVector2f* vec, float x, float y)
 
 void* net_check(void* args)
 {
-  printf("asdasdasd\n");
   char buf[32];
   struct sockaddr_in servaddr;
   servaddr.sin_family = AF_INET; 
-  servaddr.sin_port = htons(1235); 
+  servaddr.sin_port = htons(udp_server_port); 
   servaddr.sin_addr.s_addr = inet_addr("185.255.132.26");
  
   socklen_t len = sizeof(struct sockaddr_in);
@@ -246,60 +203,11 @@ void* net_check(void* args)
       perror("Recv from server");
       exit(-1);
     }
-    printf("Recv from server: %s\n", buf);
     int a = buf[0] - '0';
     int b = buf[1] - '0';
-    printf("id:%d   dir:%d\n", a, b);
     players[a].dir = b;
   }
 }
-/*
- * Синхронизирующий поток, работает по TCP. Получает запрос от сервера на 
- * синхронизацию, в ответ отправляет структуру player_stat с координатами 
- * пакмена и его набранными очками.
- */
-// void *sinc_thread(void  *param){
-// 	struct player *player1 = (struct player*)param;
-// 	struct player_stat player_sinc;
-// 	struct sockaddr_in server;
-// 	int n;
-// 	int sign;
-// 	int pt_fd;
-// 	if((pt_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-//     perror("Socket:");
-//     exit(1);
-//   }
-        
-// 	memset(&server, 0, sizeof(server));
-//   server.sin_family    = AF_INET;  
-//   server.sin_addr.s_addr = INADDR_ANY;
-//   server.sin_port = htons(PORT);
-// 	if(connect(pt_fd, (struct sockaddr *)&server, sizeof(server)) == -1) {
-// 		perror("connect");
-// 		exit(1);
-// 	}
-// 	printf("[sinc_thread] - connecting to server\n");
-	
-// 	while(1){
-// 		printf("[sinc_thread] - waiting signal\n");
-// 		if((n = recv(pt_fd, &sign, sizeof(int), 0)) == -1) {
-// 			perror("sinc_thread Recv");
-// 			exit(1);
-// 		}
-// 		player_sinc.x = player1->x;
-// 		player_sinc.y = player1->y;
-// 		player_sinc.score = player1->speed; /* Надо будет узнать какая переменная 
-// 		* отвечает за очки
-// 		*/
-// 		printf("[sinc_thread] - Got signal, sending struct: x=%f y=%f score=%d\n", 
-// 				player_sinc.x, player_sinc.y, player_sinc.score);
-		
-// 		if(send(pt_fd, &player_sinc, sizeof(struct player_stat), 0) == -1) {
-// 			perror("sinc_thread Send");
-// 			exit(1);
-// 		}
-// 	}
-// }
 
 void set_text(sfText* text, const char* frmt, char* buf, float x, float y)
 {
@@ -340,7 +248,6 @@ int main()
   int max_players = 1;
   struct sockaddr_in server, cliaddr;
   char buf[32];
-  int net_data;
 
   memset(&server, 0, sizeof(server));
   server.sin_family = AF_INET;  
@@ -348,8 +255,8 @@ int main()
   server.sin_port = htons(SERVER_PORT);
 
   cliaddr.sin_family = AF_INET;
-  cliaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-  cliaddr.sin_port = htons(9974);
+  cliaddr.sin_addr.s_addr = INADDR_ANY;
+  cliaddr.sin_port = htons(9956);
 /*##############################################################################
  * Получение данных для настройки от сервера
  *##############################################################################
@@ -386,7 +293,6 @@ int main()
   }
   my_id = atoi(buf);
   printf("[main] - Id: %d\n", my_id);
-  sleep(10);
   if(send(tcp_sockfd, "1", 1, 0) == -1) 
   {
     perror("[main] Send");
@@ -394,32 +300,15 @@ int main()
   }
   printf("[main] - Wait all players...\n");
   memset(buf, '0', 32);
-  if((recv(tcp_sockfd, buf, 32, 0)) == -1) 
-  {
-    perror("[main] Recv");
-    exit(1);
-  }
-  if((recv(tcp_sockfd, buf, 32, 0)) == -1) 
-  {
-    perror("[main] Recv");
-    exit(1);
-  }
+
+  while((recv(tcp_sockfd, buf, 32, 0)) == 0){}
+  while((recv(tcp_sockfd, buf, 32, 0)) == 0){} 
+
   server.sin_port = htons(atoi(buf));
   udp_server_port = atoi(buf);
   printf("[main] - Port: %s\n", buf);
-  if((recv(tcp_sockfd, buf, 32, 0)) == -1) 
-  {
-    perror("[main] Recv");
-    exit(1);
-  }
-  printf("%s\n", buf);
-  if((recv(tcp_sockfd, buf, 32, 0)) == -1) 
-  {
-    perror("[main] Recv");
-    exit(1);
-  }
-  printf("%s\n", buf);
- /*##############################################################################
+
+/*##############################################################################
  * Подготовка к началу игрового цикла 
  *##############################################################################
  */
@@ -481,52 +370,28 @@ int main()
     
     if(sfKeyboard_isKeyPressed(sfKeyLeft)&& players[my_id].last_dir != 1)
     {
-      //players[my_id].dir = 1;
       players[my_id].last_dir = 1;
-      if(sendto(udp_sockfd, "1", 1, 0, (struct sockaddr*)&server,
-          sizeof(struct sockaddr)) == -1);
-      {
-        //perror("Send L key to server");
-        //exit(-1);
-      }
+      sendto(udp_sockfd, "1", 1, 0, (struct sockaddr*)&server, sizeof(server));
       printf("Send left key\n");
 
     }
     if(sfKeyboard_isKeyPressed(sfKeyRight)&& players[my_id].last_dir != 0)
     {
-      //players[my_id].dir = 0;
       players[my_id].last_dir = 0;
-      if(sendto(udp_sockfd, "0", 1, 0, (struct sockaddr*)&server,
-          sizeof(server)) == -1)
-      {
-        //perror("Send R key to server");
-       // exit(-1);
-      }
+      sendto(udp_sockfd, "0", 1, 0, (struct sockaddr*)&server, sizeof(server));
       printf("Send right key\n");
     }
     if(sfKeyboard_isKeyPressed(sfKeyUp) && players[my_id].last_dir != 3)
     {
-      //players[my_id].dir = 3;
       players[my_id].last_dir = 3;
-      if(sendto(udp_sockfd, "3", 1, 0, (struct sockaddr*)&server,
-          sizeof(struct sockaddr)) == -1);
-      {
-        //perror("Send U key to server");
-        //exit(-1);
-      }
+      sendto(udp_sockfd, "3", 1, 0, (struct sockaddr*)&server, sizeof(server));
       printf("Send up key\n");
 
     }
     if(sfKeyboard_isKeyPressed(sfKeyDown)&& players[my_id].last_dir != 2)
     {
-      //players[my_id].dir = 2;
       players[my_id].last_dir = 2;
-      if(sendto(udp_sockfd, "2", 1, 0, (struct sockaddr*)&server,
-          sizeof(struct sockaddr)) == -1);
-      {
-        //perror("Send D key to server");
-        //exit(-1);
-      }
+      sendto(udp_sockfd, "2", 1, 0, (struct sockaddr*)&server, sizeof(server));
       printf("Send down key\n");
 
     }
