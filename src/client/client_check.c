@@ -15,7 +15,7 @@ void *client_check(void *param)
   int connected_players = 0;
   int ready_players = 0;
   int tcp_sockfd = *(int  *)param;
- 
+  printf("[client_check] - START\n");
   while(1)
   {
     if((recv(tcp_sockfd, net_data, sizeof(net_data), 0)) == -1) 
