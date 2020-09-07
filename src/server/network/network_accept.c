@@ -38,7 +38,7 @@ void *network_accept()
   /* Указатели на различные данные в массиве. (для удобства обращения) */
   int *type = &net_data_int[0];
   int *data1 = &net_data_int[1];
-  /*int *data2 = &net_data_int[2];*/
+  int *data2 = &net_data_int[2];
 
   char mq_data[NET_DATA_SIZE + 1];
   char thread_name[9];
@@ -97,8 +97,9 @@ void *network_accept()
 
         /* Отправка остальным клиентам информации о новом подключении. */
         *type = CL_CONNECT;
-        *data1 = client_max_id + 1;
-        for(count = 0; count < client_max_id; count++)
+        *data1 = client_max_id;
+        *data2 = client_max_id + 1;
+        for(count = 0; count <= client_max_id; count++)
         {
           if ((send(net_client_desc[count], net_data_int,
                       sizeof(net_data_int), TCP_NODELAY)) == -1)
