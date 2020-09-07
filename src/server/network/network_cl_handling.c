@@ -19,6 +19,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 
 #include "../server_defs.h"
@@ -78,7 +79,7 @@ void *network_cl_handling()
    */
   sprintf(net_data, "%d", client_id); /* "ID:%d" */
   while ((send(net_client_desc[client_id], net_data,
-              sizeof(net_data), 0)) == -1) {}
+              sizeof(net_data), TCP_NODELAY)) == -1) {}
   memset(net_data, 0, sizeof(net_data));
   printf("[%s] - Notified client about it's ID\n", section);
 
@@ -189,13 +190,14 @@ void *network_cl_handling()
    */
   sprintf(net_data, "%d", new_port); /* "PORT:%d" */
   if ((send(net_client_desc[client_id], net_data,
-              sizeof(net_data), 0)) == -1)
+              sizeof(net_data), TCP_NODELAY)) == -1)
   {
     perror("UDP SEND PORT");
   }
   else
   {
-    printf("[%s] - Notified client about new port [%d]\n", section, new_port);
+    printf("[%s] - Notified client about UDP connection port [%d]\n",
+            section, new_port);
   }
 
   memset(net_data, 0, sizeof(net_data));

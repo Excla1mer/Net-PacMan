@@ -19,6 +19,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 
 #include "../server_defs.h"
@@ -109,7 +110,7 @@ void *network_control()
   sprintf(net_data, "%d", client_max_id + 1); /* "START:%d" */
   for (count = 0; count <= client_max_id; count++)
   {
-    send(net_client_desc[count], net_data, 7, 0);
+    send(net_client_desc[count], net_data, 7, TCP_NODELAY);
   }
   memset(net_data, 0, sizeof(net_data));
 
