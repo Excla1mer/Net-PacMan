@@ -16,10 +16,12 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 
-#include "../server_defs.h"
 #include "../server_protos.h"
+#include "../server_defs.h"
+#include "../../net_data_defs.h"
 
 void *network_accept()
 {
@@ -29,11 +31,25 @@ void *network_accept()
  */
   const char *section = "NET ACCEPT";
 
+
+  int count;
+  /* Массив сетевых данных, передаваемый между клиентом и потоком */
+  int net_data_int[NET_DATA_SIZE];
+  /* Указатели на различные данные в массиве. (для удобства обращения) */
+  int *type = &net_data_int[0];
+  int *data1 = &net_data_int[1];
+  /*int *data2 = &net_data_int[2];*/
+
   char net_data[50];
   char thread_name[9];
 
   memset(net_data, 0, sizeof(net_data));
   memset(thread_name, 0, sizeof(thread_name));
+  for (count = 0; count < NET_DATA_SIZE; count++)
+  {
+    net_data_int[count] = -1;
+  }
+  count = 0;
 
   printf("[%s] - Started\n", section);
 
@@ -80,6 +96,24 @@ void *network_accept()
         launch_thread(&network_cl_handling_tid[client_max_id],
                       network_cl_handling, thread_name);
         memset(thread_name, 0, sizeof(thread_name));
+
+        /* Отправка остальным клиентам информации о новом подключении. */
+        *type = CL_CONNECT;
+        *data1 = client_max_id + 1;
+        for(count = 0; count < client_max_id; count++)
+        {
+          if ((send(net_client_desc[count], net_data_int,
+                      sizeof(net_data_int), TCP_NODELAY)) == -1)
+          {
+            perror("TCP SEND NEW CONNECT");
+          }
+        }
+        printf("[%s] - Notified clients about newly connected client\n",
+                section);
+        for (count = 0; count < NET_DATA_SIZE; count++)
+        {
+          net_data_int[count] = -1;
+        }
       }
   }
 

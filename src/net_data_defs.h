@@ -10,4 +10,4 @@
 #define CL_READY 3
 #define CL_CONNECT 4
 
-#endif // NET_DATA_DEFS_H
+#endif /* NET_DATA_DEFS_H */

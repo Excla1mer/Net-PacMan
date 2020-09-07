@@ -22,8 +22,9 @@
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 
-#include "../server_defs.h"
 #include "../server_protos.h"
+#include "../server_defs.h"
+#include "../../net_data_defs.h"
 
 void *network_control()
 {
@@ -34,11 +35,23 @@ void *network_control()
   const char *section = "NET CONTROL";
 
   int count;
+  /* Массив сетевых данных, передаваемый между клиентом и потоком */
+  int net_data_int[NET_DATA_SIZE];
+  /* Указатели на различные данные в массиве. (для удобства обращения) */
+  int *type = &net_data_int[0];
+  int *data1 = &net_data_int[1];
+  /*int *data2 = &net_data_int[2];*/
+
   char net_data[50];
   char name[9];
 
   memset(net_data, 0, sizeof(net_data));
   memset(name, 0, sizeof(name));
+  for (count = 0; count < NET_DATA_SIZE; count++)
+  {
+    net_data_int[count] = -1;
+  }
+  count = 0;
 
   printf("[%s] - Started\n", section);
 
@@ -107,10 +120,12 @@ void *network_control()
   sleep(SLEEP_TIME);
 
   /* Оповещение клиентов о готовности начать и количестве игроков. */
-  sprintf(net_data, "%d", client_max_id + 1); /* "START:%d" */
+  *type = START;
+  *data1 = client_max_id + 1;
   for (count = 0; count <= client_max_id; count++)
   {
-    send(net_client_desc[count], net_data, 7, TCP_NODELAY);
+    send(net_client_desc[count], net_data_int, sizeof(net_data_int),
+          TCP_NODELAY);
   }
   memset(net_data, 0, sizeof(net_data));
 
