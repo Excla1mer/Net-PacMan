@@ -11,6 +11,10 @@ char colors[4][32] = {
   "textures/PacmanGreenEyes2.png\0"
 };
 
+/*##############################################################################
+ * Инициализация игроков
+ *##############################################################################
+ */
 void init_players(struct player* p, int max_players, sfIntRect* rect)
 {
   int w = 21;
@@ -42,7 +46,10 @@ void init_players(struct player* p, int max_players, sfIntRect* rect)
     sfSprite_setTextureRect(p[i].sprite, *rect);
   }
 }
-
+/*##############################################################################
+ * Установка положение каждого игрока
+ *##############################################################################
+ */
 void update(struct player* p, float time, int max_players)
 {
   sfIntRect rect = {0, 0, 0, 0};
@@ -99,7 +106,10 @@ void update(struct player* p, float time, int max_players)
     sfSprite_setPosition(p[i].sprite, pos);
   }
 }
-
+/*##############################################################################
+ * Взаимодействие игрока с картой
+ *##############################################################################
+ */
 void action_with_map(struct player* p)
 {
   for(int i = (p->y + 8) / BLOCK; i < (p->y + p->h) / BLOCK; i++)

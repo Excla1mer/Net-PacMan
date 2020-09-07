@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <netinet/tcp.h>
 
 #include "player.h"
 #include "help_sets.h"
@@ -57,12 +58,13 @@ int main()
  * Объявление и определение/подготовка данных
  *##############################################################################
  */
+  int port = 7777;
   int tcp_sockfd;
   int my_id = 0;
   char score[8];
-  int max_players = 1;
+  int max_players = 4;
   struct sockaddr_in server, cliaddr;
-  char buf[32];
+  char *buf = calloc(5, 1);
 
   memset(&server, 0, sizeof(server));
   server.sin_family = AF_INET;  
@@ -71,7 +73,7 @@ int main()
 
   cliaddr.sin_family = AF_INET;
   cliaddr.sin_addr.s_addr = INADDR_ANY;
-  cliaddr.sin_port = htons(9956);
+  cliaddr.sin_port = htons(port);
 /*##############################################################################
  * Получение данных для настройки от сервера
  *##############################################################################
@@ -87,11 +89,16 @@ int main()
     exit(1);
   }
   
-  bind(tcp_sockfd, (struct sockaddr*)&cliaddr, sizeof(cliaddr));
-  perror("bind1");
-  bind(udp_sockfd, (struct sockaddr*)&cliaddr, sizeof(cliaddr));
-  perror("bind2");
-  
+  while(bind(tcp_sockfd, (struct sockaddr*)&cliaddr, sizeof(cliaddr)) == -1)
+  {
+    cliaddr.sin_port = htons(++port);
+  }
+  printf("[main] - Your port: %d\n", port);
+  if(bind(udp_sockfd, (struct sockaddr*)&cliaddr, sizeof(cliaddr)) == -1)
+  {
+    perror("[main] Bind udp scoket");
+    exit(-1);
+  }
   printf("[main] - Connecting to server...\n");
   if(connect(tcp_sockfd, (struct sockaddr*)&server, sizeof(server)) == -1)
   {
@@ -100,29 +107,28 @@ int main()
   }
   printf("[main] - Successful connect\n");
   printf("[main] - Wait data from server...\n");
-  memset(buf, '0', 32);
-  if((recv(tcp_sockfd, buf, 32, 0)) == -1) 
+  bzero(buf, 5);
+  if((recv(tcp_sockfd, buf, 5, 0)) == -1) 
   {
     perror("[main] Recv");
     exit(1);
   }
   my_id = atoi(buf);
   printf("[main] - Id: %d\n", my_id);
-  if(send(tcp_sockfd, "1", 1, 0) == -1) 
+  if(send(tcp_sockfd, "0001", 5, TCP_NODELAY) == -1) 
   {
     perror("[main] Send");
     exit(1);
   }
   printf("[main] - Wait all players...\n");
-  memset(buf, '0', 32);
+  bzero(buf, 5);
 
-
-  while((recv(tcp_sockfd, buf, 32, 0)) == 0){}
+  while((recv(tcp_sockfd, buf, 5, 0)) == 0){}
   server.sin_port = htons(atoi(buf));
   udp_server_port = atoi(buf);
   printf("[main] - Port: %s\n", buf);
 
-  while((recv(tcp_sockfd, buf, 32, 0)) == 0){}
+  while((recv(tcp_sockfd, buf, 5, 0)) == 0){}
   printf("[main] - Some data: %s\n", buf);
 /*##############################################################################
  * Подготовка к началу игрового цикла 
@@ -150,7 +156,7 @@ int main()
   /* Инициализация и создание текстовых данных */
   sfText* score_text = sfText_create();
   sfText_setColor(score_text, sfWhite);
-  sfText_setCharacterSize(score_text, 50);
+  sfText_setCharacterSize(score_text, 67);
   sfFont* font = sfFont_createFromFile("textures/Font.otf");
   sfText_setFont(score_text, font);
 
@@ -165,7 +171,6 @@ int main()
  * Начало игрового цикла
  *##############################################################################
  */
-  server.sin_port = htons(udp_server_port);
   while(sfRenderWindow_isOpen(window))
   {
     /* Отслеживание времени */
@@ -225,8 +230,8 @@ int main()
       if(i != my_id)
       {
         sprintf(score, "%d", players[i].score);
-        set_text(score_text, "Score:  %s\n", score, 900, 650 + (place * 40));
-        set_icon(players[i].icon_sprite, 850, 675 + (place * 40));
+        set_text(score_text, "Score:  %s\n", score, 900, 660 + (place * 40));
+        set_icon(players[i].icon_sprite, 850, 695 + (place * 40));
         sfRenderWindow_drawSprite(window, players[i].sprite, NULL);
         sfRenderWindow_drawSprite(window, players[i].icon_sprite, NULL);
         sfRenderWindow_drawText(window, score_text, NULL);
@@ -237,7 +242,7 @@ int main()
     /* Отрисовка правого меню текущего игрока */
     sprintf(score, "%d", players[my_id].score);
     set_text(score_text, "You: \nScore:  %s\n", score, 850, 20);
-    set_icon(players[my_id].icon_sprite, 915, 48);
+    set_icon(players[my_id].icon_sprite, 935, 61);
     sfRenderWindow_drawSprite(window, players[my_id].icon_sprite, NULL);
     sfRenderWindow_drawText(window, score_text, NULL);
     sfRenderWindow_display(window);
