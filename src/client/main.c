@@ -9,179 +9,14 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
+#include "player.h"
+#include "help_sets.h"
 #include "map.h"
 
 #define SERVER_PORT 1234  // порт сервера
 
-char colors[4][32] = {
-  "textures/PacmanYellowEyes2.png\0",
-  "textures/PacmanRedEyes2.png\0",
-  "textures/PacmanPurpleEyes2.png\0",
-  "textures/PacmanGreenEyes2.png\0"
-};
-
 int udp_server_port;
 int udp_sockfd;
-
-struct player
-{
-  int dir, last_dir, w, h, score;
-  float x, y, dx, dy, speed, cur_frame;
-  sfSprite* sprite;
-  sfSprite* icon_sprite;
-  sfTexture* texture;
-  sfImage* image;
-};
-
-void set_rect(sfIntRect* rectangle, int l, int t, int w, int h)
-{
-  rectangle->left = l;
-  rectangle->top = t;
-  rectangle->height = w;
-  rectangle->width = h;
-}
-
-void init_players(struct player* p, int max_players, sfIntRect* rect)
-{
-  int w = 21;
-  int h = 21;
-  int place[4][2] = {{30, 30}, {26*30, 30}, {30, 29*30}, {26*30, 29*30}};
-
-  for(int i=0; i<max_players; ++i)
-  {
-    /* Расстановка игроков по углам карты */
-    p[i].x = place[i][0];
-    p[i].y = place[i][1];
-
-    /* Инициализация начальных переменных каждого игрока*/
-    p[i].w = w;
-    p[i].h = h;
-    p[i].speed = 0;
-    p[i].dir = -1;
-    p[i].last_dir = -1;
-    p[i].score = 0;
-    p[i].image = sfImage_createFromFile(colors[i]);
-    p[i].texture = sfTexture_createFromImage(p[i].image, NULL);
-    p[i].sprite = sfSprite_create();
-    p[i].icon_sprite = sfSprite_create();
-    sfSprite_setTexture(p[i].sprite, p[i].texture, sfTrue);
-    sfSprite_setTexture(p[i].icon_sprite, p[i].texture, sfTrue);
-
-    /* Поворот текстур в нужную сторону */
-    set_rect(rect, 1, (i % 2 ? 93 : 1), 30, 30);
-    sfSprite_setTextureRect(p[i].sprite, *rect);
-  }
-}
-
-void action_with_map(struct player* p)
-{
-  for(int i = (p->y + 8) / BLOCK; i < (p->y + p->h) / BLOCK; i++)
-    for(int j = (p->x + 8) / BLOCK; j < (p->x + p->w) / BLOCK; j++)
-    {
-      if(map[i][j] == ' ')
-      {
-        map[i][j] = '*';
-        p->score += 1;
-        return;
-      }
-      if(map[i][j] == 'r')
-      {
-        p->x = WIDTH_MAP * BLOCK - 2 * BLOCK;
-        return;
-      }
-      if(map[i][j] == 'l')
-      {
-        p->x = BLOCK;
-        return;
-      }
-      if((map[i][j] != ' ') && (map[i][j] != '*'))
-      {
-        if(p->dy>0)
-        {
-          p->y = i * BLOCK - p->h;
-          return;
-        }
-        if(p->dy<0)
-        {
-          p->y = i * BLOCK + BLOCK - 8;
-          return;
-        }
-        if(p->dx>0)
-        {
-          p->x = j * BLOCK - p->w;
-          return;
-        }
-        if(p->dx < 0)
-        {
-          p->x = j * BLOCK + BLOCK - 8;
-          return;
-        }
-      }
-    }
-}
-
-void update(struct player* p, float time, int max_players)
-{
-  sfIntRect rect = {0, 0, 0, 0};
-  for(int i = 0; i < max_players; ++i)
-  {
-    switch(p[i].dir)
-    {
-      case 0:
-        p[i].speed = 0.1;
-        p[i].cur_frame += 0.005 * time;
-        if(p[i].cur_frame > 4)
-          p[i].cur_frame -= 4;
-        set_rect(&rect, 30 * (int)p[i].cur_frame + 1, 1, 30, 30);
-        sfSprite_setTextureRect(p[i].sprite, rect);
-        p[i].dx = p[i].speed;
-        p[i].dy = 0;
-        break;
-      case 1:
-        p[i].speed = 0.1;
-        p[i].cur_frame += 0.005 * time;
-        if(p[i].cur_frame > 4)
-          p[i].cur_frame -= 4;
-        set_rect(&rect, 30 * (int)p[i].cur_frame + 1, 93, 30, 30);
-        sfSprite_setTextureRect(p[i].sprite, rect);
-        p[i].dx = -p[i].speed;
-        p[i].dy = 0;
-        break;
-      case 2:
-        p[i].speed = 0.1;
-        p[i].cur_frame += 0.005 * time;
-        if(p[i].cur_frame > 4)
-          p[i].cur_frame -= 4;
-        set_rect(&rect, 30 * (int)p[i].cur_frame + 1, 32, 30, 30);
-        sfSprite_setTextureRect(p[i].sprite, rect);
-        p[i].dx = 0;
-        p[i].dy = p[i].speed;
-        break;
-      case 3:
-        p[i].speed = 0.1;
-        p[i].cur_frame += 0.005 * time;
-        if(p[i].cur_frame > 4)
-          p[i].cur_frame -= 4;
-        set_rect(&rect, 30 * (int)p[i].cur_frame + 1, 62, 30, 30);
-        sfSprite_setTextureRect(p[i].sprite, rect);
-        p[i].dx = 0;
-        p[i].dy = -p[i].speed;
-        break;
-    }
-    p[i].x += p[i].dx * time;
-    p[i].y += p[i].dy * time;
-    p[i].speed = 0;
-    action_with_map(&p[i]);
-    sfVector2f pos = {p[i].x, p[i].y};
-    sfSprite_setPosition(p[i].sprite, pos);
-  }
-}
-
-void set_vec(sfVector2f* vec, float x, float y)
-{
-  vec->x = x;
-  vec->y = y;
-}
 
 void* net_check(void* args)
 {
@@ -207,26 +42,6 @@ void* net_check(void* args)
     int b = buf[1] - '0';
     players[a].dir = b;
   }
-}
-
-void set_text(sfText* text, const char* frmt, char* buf, float x, float y)
-{
-  sfVector2f vec = {0, 0};
-	char str[32];
-  sprintf(str, frmt, buf);
-  sfText_setString(text, str);
-  set_vec(&vec, x, y);
-  sfText_setPosition(text, vec);
-}
-
-void set_icon(sfSprite* icon, float x, float y)
-{
-  sfVector2f vec = {0, 0};
-  sfIntRect rect = {0, 0, 0, 0};
-  set_vec(&vec, x, y);
-  set_rect(&rect, 93, 1, 30, 30);
-  sfSprite_setTextureRect(icon, rect);
-  sfSprite_setPosition(icon, vec);
 }
 
 void set_netdata(int* net_data, int a, int b, int c)
@@ -324,7 +139,6 @@ int main()
   sfVideoMode mode = {1150, 950, 32};
   sfRenderWindow* window;
   sfEvent event;
-  sfVector2f vec = {0, 0};
 
   /* Инициализация и создание карты */
   sfSprite* map_sprite = sfSprite_create();
@@ -368,14 +182,14 @@ int main()
 
     /* Обработка нажатых клавиш */
     
-    if(sfKeyboard_isKeyPressed(sfKeyLeft)&& players[my_id].last_dir != 1)
+    if(sfKeyboard_isKeyPressed(sfKeyLeft) && players[my_id].last_dir != 1)
     {
       players[my_id].last_dir = 1;
       sendto(udp_sockfd, "1", 1, 0, (struct sockaddr*)&server, sizeof(server));
       printf("Send left key\n");
 
     }
-    if(sfKeyboard_isKeyPressed(sfKeyRight)&& players[my_id].last_dir != 0)
+    if(sfKeyboard_isKeyPressed(sfKeyRight) && players[my_id].last_dir != 0)
     {
       players[my_id].last_dir = 0;
       sendto(udp_sockfd, "0", 1, 0, (struct sockaddr*)&server, sizeof(server));
@@ -388,76 +202,19 @@ int main()
       printf("Send up key\n");
 
     }
-    if(sfKeyboard_isKeyPressed(sfKeyDown)&& players[my_id].last_dir != 2)
+    if(sfKeyboard_isKeyPressed(sfKeyDown) && players[my_id].last_dir != 2)
     {
       players[my_id].last_dir = 2;
       sendto(udp_sockfd, "2", 1, 0, (struct sockaddr*)&server, sizeof(server));
       printf("Send down key\n");
 
     }
-
+    /* Обновление данных игрока */
     update(players, ttime, max_players);
+    /* Очистка окна*/
     sfRenderWindow_clear(window, sfBlack);
-
     /* Отрисовка карты */
-    for(int i = 0; i < HEIGHT_MAP; i++)
-    {
-      for(int j = 0; j < WIDTH_MAP; j++)
-      {
-        if(map[i][j] == ' ')
-        {
-          set_rect(&rect, 0, 90, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect);
-        }
-        if(map[i][j] == '2')
-        {
-          set_rect(&rect, 30, 0, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect); 
-        }
-        if(map[i][j] == '1')
-        {
-          set_rect(&rect, 60, 0, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect); 
-        }
-        if(map[i][j] == '3')
-        {
-          set_rect(&rect, 120, 0, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect); 
-        }
-        if(map[i][j] == '4')
-        {
-          set_rect(&rect, 150, 0, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect); 
-        }
-        if(map[i][j] == '|')
-        {
-          set_rect(&rect, 0, 30, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect); 
-        }
-        if(map[i][j] == '-')
-        {
-          set_rect(&rect, 60, 30, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect); 
-        }
-        if(map[i][j] == 'd')
-        {
-          set_rect(&rect, 90, 60, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect); 
-        }
-        if(map[i][j] == 'u')
-        {
-          sfSprite_setTextureRect(map_sprite, rect); 
-        }
-        if((map[i][j] == '*') || (map[i][j] == 't') || (map[i][j] == 'r'))
-        {
-          set_rect(&rect, 0, 0, 30, 30);
-          sfSprite_setTextureRect(map_sprite, rect); 
-        }
-        set_vec(&vec, j*30, i*30);
-        sfSprite_setPosition(map_sprite, vec);
-        sfRenderWindow_drawSprite(window, map_sprite, NULL);
-      }
-    }
+    draw_map(window, map_sprite);
 
     /* Отрисовка правого меню других игроков */
     int place = 1;
