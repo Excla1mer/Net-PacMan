@@ -116,13 +116,14 @@ int main()
   printf("[main] - Wait all players...\n");
   memset(buf, '0', 32);
 
-  while((recv(tcp_sockfd, buf, 32, 0)) == 0){}
-  while((recv(tcp_sockfd, buf, 32, 0)) == 0){} 
 
+  while((recv(tcp_sockfd, buf, 32, 0)) == 0){}
   server.sin_port = htons(atoi(buf));
   udp_server_port = atoi(buf);
   printf("[main] - Port: %s\n", buf);
 
+  while((recv(tcp_sockfd, buf, 32, 0)) == 0){}
+  printf("[main] - Some data: %s\n", buf);
 /*##############################################################################
  * Подготовка к началу игрового цикла 
  *##############################################################################
