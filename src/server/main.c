@@ -149,7 +149,9 @@ int main()
       perror("TCP BIND");
       break;
     }
-    printf("[%s] - (TCP) Socket binded\n", section);
+    printf("[%s] - (TCP) Socket binded on [%s:%d]\n", section,
+            inet_ntoa(server_addr_struct.sin_addr),
+            ntohs(server_addr_struct.sin_port));
 
     /* Перевод сокета в режим прослушки */
     if ((listen(tcp_sock_desc, 0)) == -1)
