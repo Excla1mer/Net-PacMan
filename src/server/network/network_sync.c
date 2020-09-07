@@ -69,15 +69,8 @@ void *network_sync()
       sprintf(formatted_data, "ID:%d|SYN_REP:%s", count, net_data);
       for (count2 = 0; count2 <= client_max_id; count2++)
       {
-        /* Заберите нужный if. Другой закоментите. */
         /* Отправка по UDP */
-        if (sendto(udp_sock_desc, formatted_data, 100, 0,
-            (struct sockaddr *)&net_client_addr[count],
-            net_client_addr_size[count]) > 0)
-        /* Отправка по TCP */
-        /*
-        if (send(net_client_desc[count2], formatted_data, 100, 0) > 0)
-        */
+        if (send(udp_cl_sock_desc[count2], formatted_data, 100, 0) > 0)
         {
           printf("[%s] - Sync-ed client#%d\n", section, count);
         }

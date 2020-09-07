@@ -112,10 +112,41 @@ int init_shut()
  if (network_control_tid > 0)
  {
    close_thread(network_control_tid, "NET CONTROL");
-   /* Уничтожение мьютексов и семафоров */
-   pthread_mutex_destroy(&ready_count_lock);
-   pthread_mutex_destroy(&new_port_lock);
-   sem_destroy(&endgame_lock);
+
+   /*
+    * Уничтожение мьютексов и семафоров. Они инициализировались вместе с потоком
+    * сетевого контроля, и с ним же уничтожаются.
+    */
+   /* Мьютекс счётчика готовности */
+   if (pthread_mutex_destroy(&ready_count_lock) == 0)
+   {
+     printf("[%s] - Ready count mutex destroyed\n", section);
+   }
+   else
+   {
+     printf("[%s] - Unable to destroy ready count mutex."\
+            "Proceeding anyway...\n", section);
+   }
+   /* Мьютекс подбора нового порта */
+   if (pthread_mutex_destroy(&new_port_lock) == 0)
+   {
+     printf("[%s] - New port searching mutex destroyed\n", section);
+   }
+   else
+   {
+     printf("[%s] - Unable to destroy new port searching mutex."\
+            "Proceeding anyway...\n", section);
+   }
+   /* Семафор окончания игры */
+   if (sem_destroy(&endgame_lock) == 0)
+   {
+     printf("[%s] - Endgame semaphore destroyed\n", section);
+   }
+   else
+   {
+     printf("[%s] - Unable to destroy endgame semaphore mutex."\
+            "Proceeding anyway...\n", section);
+   }
  }
 
 /*##############################################################################
@@ -129,13 +160,7 @@ int init_shut()
     close_sock(tcp_sock_desc, "TCP");
   }
 
-  /* UDP сокет */
-  if (udp_sock_desc > 0)
-  {
-    close_sock(udp_sock_desc, "UDP");
-  }
-
-  /* Личные сокеты клиентов */
+  /* Личные UDP сокеты клиентов */
   for (count = 0; count <= client_max_id; count++)
   {
     if (udp_cl_sock_desc[count] > 0)

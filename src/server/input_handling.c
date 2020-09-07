@@ -35,10 +35,18 @@ void *input_handling()
   char input[50];
   /*int count;*/
 
+  const char *command_list =
+        "########################################################\n"\
+        " \n"\
+        " Server commands:\n"\
+        " \n"\
+        " /shut - close program\n"\
+        " /help - print this command list\n"\
+        " \n"\
+        "########################################################\n";
+
   printf("[%s] - Started\n", section);
-  printf("########################################################\n"\
-        "-------------Type /shut to exit the program-------------\n"\
-        "########################################################\n");
+  printf("%s", command_list);
   /*count = 0;*/
 
 /*##############################################################################
@@ -46,15 +54,16 @@ void *input_handling()
  *##############################################################################
  */
 
-  /* Бесконечный цикл. Прерывается только командой /shut */
+  /* Бесконечный цикл. Не прерывается до самого конца работы программы */
   while (1)
   {
     fgets(input, 50, stdin);
 
     /* /shut - завершение работы сервера. Это завершит всю программу. */
-    if (strcmp(input, "/shut\n") == 0)
+    if(strcmp(input, "/shut\n") == 0)
     {
-      printf("[%s] - Initializing shutdown\n", section);
+      printf("########################################################\n"\
+              "[%s] - Initializing shutdown\n", section);
       /*
        *Блокируется мьютекс, чтобы поток не завершил сам себя, выполняя
        * функцию "init_shut"
@@ -81,6 +90,18 @@ void *input_handling()
       printf("[%s] - Exiting thread...\n", section);
       /* Вернуть 0. Теперь контроль перейдёт в "main"*/
       pthread_exit((void *)0);
+    }
+
+    /* /help - вывести список команд. */
+    else if(strcmp(input, "/help\n") == 0)
+    {
+      printf("%s", command_list);
+    }
+
+    /* Ответ по-умолчанию - команда не найдена */
+    else
+    {
+      printf("Unrecognized command. Try typing ""/help"" for command list\n");
     }
   }
 }

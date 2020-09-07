@@ -36,7 +36,6 @@ mqd_t net_mq_desc;
 
 /* Дескрипторы сокетов */
 int tcp_sock_desc;
-int udp_sock_desc;
 int udp_cl_sock_desc[MAX_PLAYERS];
 
 /* Максимальный ID клиента. Также, общее число клиентов-1 */
