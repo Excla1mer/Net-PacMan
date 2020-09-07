@@ -31,9 +31,21 @@ void *network_dist()
   const char *section = "NET DIST";
 
   int count;
-  char formatted_data[100];
 
-  memset(formatted_data, 0, sizeof(formatted_data));
+  /* Массив сетевых данных, передаваемый между клиентом и потоком */
+  int net_data_int[NET_DATA_SIZE];
+  /* Указатели на различные данные в массиве. (для удобства обращения) */
+  /*int *type = &net_data_int[0];*/
+  /*int *data1 = &net_data_int[1];*/
+  /*int *data2 = &net_data_int[2];*/
+
+  char mq_data[NET_DATA_SIZE + 1];
+
+  for (count = 0; count < NET_DATA_SIZE; count++)
+  {
+    net_data_int[count] = -1;
+  }
+  memset(mq_data, 0 ,sizeof(mq_data));
 
   printf("[%s] - Started\n", section);
 
@@ -44,25 +56,23 @@ void *network_dist()
 
   while (1)
   {
-    if(mq_receive(net_mq_desc, formatted_data, 100, NULL) > 0)
+    if(mq_receive(net_mq_desc, (char *)&net_data_int, mq_msg_size, NULL) > 0)
     {
       for(count = 0; count <= client_max_id; count++)
       {
-        /* Заберите нужный блок. Другой закоментите. */
-        /* Отправка по UDP */
-        /* Отправка в личный сокет клиента - уточнение адреса не требуется. */
-        send(udp_cl_sock_desc[count], formatted_data, 100, 0);
-        /*sendto(udp_cl_sock_desc[count], formatted_data, 100, 0,
-                    (struct sockaddr *)&net_client_addr[count],
-                    net_client_addr_size[count]);*/
-        /*perror("SEND");*/
-        /* Отправка по TCP */
         /*
-        send(net_client_addr[count], formatted_data, 100, 0);
-        */
+         * Отправка в личный UDP сокет клиента - уточнение адреса не требуется.
+         */
+        send(udp_cl_sock_desc[count], net_data_int, sizeof(net_data_int), 0);
+        /*perror("SEND");*/
       }
-      printf("[%s] - REsended some data to clients\n", section);
-      memset(formatted_data, 0, sizeof(formatted_data));
+      printf("[%s] - Resended data to clients (%d/%d/%d)\n", section,
+              net_data_int[0], net_data_int[1], net_data_int[2]);
+      for (count = 0; count < NET_DATA_SIZE; count++)
+      {
+        net_data_int[count] = -1;
+      }
+      memset(mq_data, 0 ,sizeof(mq_data));
     }
   }
 }

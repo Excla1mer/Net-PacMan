@@ -37,6 +37,9 @@ pthread_attr_t threadAttr;
 mqd_t local_mq_desc;
 mqd_t net_mq_desc;
 
+/* Максимальный размер сообщения в очереди. Высчитывается в main */
+long mq_msg_size;
+
 /* Дескрипторы сокетов */
 int tcp_sock_desc;
 int udp_cl_sock_desc[MAX_PLAYERS];

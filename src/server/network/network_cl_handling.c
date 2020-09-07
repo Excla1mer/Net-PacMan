@@ -49,16 +49,15 @@ void *network_cl_handling()
   int *data2 = &net_data_int[2];
 
   unsigned int new_port;
-  char net_data[5];
-  char formatted_data[100];
 
-  memset(net_data, 0, sizeof(net_data));
-  memset(formatted_data, 0, sizeof(formatted_data));
-  memset(section, 0, sizeof(section));
+  char mq_data[NET_DATA_SIZE + 1];
+
   for (count = 0; count < NET_DATA_SIZE; count++)
   {
     net_data_int[count] = -1;
   }
+  memset(section, 0, sizeof(section));
+  memset(mq_data, 0, sizeof(mq_data));
 
   count = 0;
 
@@ -69,10 +68,8 @@ void *network_cl_handling()
   while(1)
   {
     /* Получение ID из очереди сообщений */
-    if(mq_receive(local_mq_desc, net_data, 50, NULL) > 0)
+    if(mq_receive(local_mq_desc, (char *)&client_id, mq_msg_size, NULL) > 0)
     {
-      client_id = atoi(net_data);
-      memset(net_data, 0, sizeof(net_data));
 
       /* Из префикса и ID собирается имя секции */
       sprintf(section, "%s#%d", section_prefix, client_id);
@@ -190,10 +187,12 @@ void *network_cl_handling()
   printf("[%s] - Waiting for client to get ready\n", section);
   while(1)
   {
-    if(recv(net_client_desc[client_id], net_data_int, sizeof(net_data_int), 0) > 0)
+    if(recv(net_client_desc[client_id], net_data_int, sizeof(net_data_int),
+            0) > 0)
     {
-      /*printf("[%s] - (TCP) Message from (%s): %d%d%d\n", section,
+      /*printf("[%s] - (TCP) Message from [%s:%d]: %d/%d/%d\n", section,
               inet_ntoa(net_client_addr[client_id].sin_addr),
+              ntohs(net_client_addr[client_max_id].sin_port),
               net_data_int[0], net_data_int[1], net_data_int[2]);*/
 
       if(*type == READY)
@@ -211,7 +210,8 @@ void *network_cl_handling()
         /* Отправка остальным клиентам информации о готовности. */
         *type = CL_READY; /* Клиент готов */
         *data1 = client_id; /* Номер клиента */
-        for(count = 0; count < client_max_id; count++)
+        *data2 = ready_count; /* Общее число готовых клиентов */
+        for(count = 0; count <= client_max_id; count++)
         {
           if ((send(net_client_desc[count], net_data_int,
                       sizeof(net_data_int), TCP_NODELAY)) == -1)
@@ -220,7 +220,6 @@ void *network_cl_handling()
           }
         }
 
-        memset(net_data, 0, sizeof(net_data));
         for (count = 0; count < NET_DATA_SIZE; count++)
         {
           net_data_int[count] = -1;
@@ -228,7 +227,6 @@ void *network_cl_handling()
         /* Цикл вечного ожидания обрывается */
         break;
       }
-      memset(net_data, 0, sizeof(net_data));
     }
   }
 
@@ -251,56 +249,76 @@ void *network_cl_handling()
      * Личный сокет клиента теперь привязан к нему, так что можно не указывать
      * адрес, а просто отсылать в сокет.
      */
-    if(recv(udp_cl_sock_desc[client_id], net_data, 50, 0) > 0)
+    if(recv(udp_cl_sock_desc[client_id], net_data_int, sizeof(net_data_int),
+            0) > 0)
     {
-      printf("[%s] - (UDP) Message from [%s:%d]: %d\n", section,
+      /*printf("[%s] - (UDP) Message from [%s:%d]: %d/%d/%d\n", section,
               inet_ntoa(net_client_addr[client_id].sin_addr),
-              ntohs(net_client_addr[client_id].sin_port),
-              net_data_int[1]);
+              ntohs(net_client_addr[client_max_id].sin_port),
+              net_data_int[0], net_data_int[1], net_data_int[2]);*/
 
-      /* Проверка, было ли это сообщение, о конце игры. */
-      /*if (strcmp(net_data, "9") == 0) */ /* "ENDGAME" */
-      if (*data1 == 9)
+      /*
+       * Проверка, было ли это сообщение, о конце игры.
+       * Если да - сообщить об этом клиентам и оборвать цикл.
+       */
+      if (*type == ENDGAME)
       {
         printf("[%s] - Player ends the game\n", section);
-
-        /*
-         * Нужно отправить остальным клиентам сообщение о конце игры.
-         */
-        /*sprintf(formatted_data, "%d%d", client_id, net_data_int);
-        while (mq_send(net_mq_desc, formatted_data, strlen(formatted_data),
-                      0) != 0) {}
-        memset(formatted_data, 0, sizeof(formatted_data));
-        memset(net_data, 0, sizeof(net_data));*/
-        /*net_data_int = -1;*/
-
-        /*
-         * Инкрементировать(разблокировать) семафор под самый конец, чтобы не
-         * закрыться из "network_control" раньше времени
-         */
-        sem_post(&endgame_lock);
-        /*
-         * Не слишком красиво, но поток будет просто спать. Его окончат в
-         * "network_control" */
-        while(1)
+        /* Отправка остальным клиентам сообщения о конце игры. */
+        *type = ENDGAME; /* Конец игры*/
+        *data1 = client_id; /* Номер клиента */
+        for(count = 0; count < client_max_id; count++)
         {
-          sleep(10);
+          if ((send(net_client_desc[count], net_data_int,
+                      sizeof(net_data_int), TCP_NODELAY)) == -1)
+          {
+            perror("TCP SEND ENDGAME");
+          }
         }
+        break;
       }
 
       /*
-       * Отправка данных в очередь сообщений. Считается, что из сети, от
-       * клиента, было получено его направление движения. Оно отправляется в
-       * очередь, дополненное ID клиента и указанием на тип данных
+       * Если это не конец игры - значит это просто информация от клиента о
+       * его направлении движения. Оно отправляется в поток UDP рассылки.
        */
-      /*sprintf(formatted_data, "%d%d", client_id, net_data_int);
-      if (mq_send(net_mq_desc, formatted_data, strlen(formatted_data), 0) != 0)
+
+      /* Клиент мог и не обозначить все эти данные. Сервер уточняет их. */
+      *type = CL_DIR;
+      *data1 = client_id;
+      *data2 = net_data_int[2];
+      /*
+       * Отправка данных в очередь сообщений. Здесь не важно, что эти данные
+       * значат, их всё равно нужно разослать.
+       */
+      if (mq_send(net_mq_desc, (char *)&net_data_int, sizeof(net_data_int), 0)
+                  != 0)
       {
         printf("[%s] - MQ unavailable. Player data dropped.\n", section);
       }
-      memset(formatted_data, 0, sizeof(formatted_data));
-      memset(net_data, 0, sizeof(net_data));*/
-      /*net_data_int = -1;*/
+      for (count = 0; count < NET_DATA_SIZE; count++)
+      {
+        net_data_int[count] = -1;
+      }
+      memset(mq_data, 0 ,sizeof(mq_data));
     }
+  }
+  /*
+   * Здесь, вне цикла, поток окажется только получив от своего клиента
+   * сообщение об окончании игры. Поток даст понять об этом потоку сетевого
+   * контроля (network_control) через семафор, а сам уснёт.
+   */
+
+  /*
+   * Инкрементировать(разблокировать) семафор под самый конец, чтобы не
+   * закрыться из "network_control" раньше времени
+   */
+  sem_post(&endgame_lock);
+  /*
+   * Не слишком красиво, но поток будет просто спать. Его окончат в
+   * "network_control" */
+  while(1)
+  {
+    sleep(10);
   }
 }

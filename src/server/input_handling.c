@@ -33,7 +33,7 @@ void *input_handling()
   const char *section = "INPUT HANDLING";
 
   char input[50];
-  /*int count;*/
+  int count;
 
   const char *command_list =
         "########################################################\n"\
@@ -41,6 +41,7 @@ void *input_handling()
         " Server commands:\n"\
         " \n"\
         " /shut - close program\n"\
+        " /list_players - list connected playrs\n"\
         " /help - print this command list\n"\
         " \n"\
         "########################################################\n";
@@ -57,7 +58,7 @@ void *input_handling()
   /* Бесконечный цикл. Не прерывается до самого конца работы программы */
   while (1)
   {
-    fgets(input, 50, stdin);
+    fgets(input, sizeof(input), stdin);
 
     /* /shut - завершение работы сервера. Это завершит всю программу. */
     if(strcmp(input, "/shut\n") == 0)
@@ -96,6 +97,19 @@ void *input_handling()
     else if(strcmp(input, "/help\n") == 0)
     {
       printf("%s", command_list);
+    }
+
+    /* /list_players - вывести список подключенных клиентов. */
+    else if(strcmp(input, "/list_players\n") == 0)
+    {
+      printf(" Currently connected players:\n");
+      for(count = 0; count <= client_max_id; count++)
+      {
+        printf("  Player#%d [%s:%d]\n",
+                count,
+                inet_ntoa(net_client_addr[count].sin_addr),
+                ntohs(net_client_addr[count].sin_port));
+      }
     }
 
     /* Ответ по-умолчанию - команда не найдена */

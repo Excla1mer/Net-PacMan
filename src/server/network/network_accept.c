@@ -40,10 +40,10 @@ void *network_accept()
   int *data1 = &net_data_int[1];
   /*int *data2 = &net_data_int[2];*/
 
-  char net_data[50];
+  char mq_data[NET_DATA_SIZE + 1];
   char thread_name[9];
 
-  memset(net_data, 0, sizeof(net_data));
+  memset(mq_data, 0, sizeof(mq_data));
   memset(thread_name, 0, sizeof(thread_name));
   for (count = 0; count < NET_DATA_SIZE; count++)
   {
@@ -86,10 +86,8 @@ void *network_accept()
          * Присвоенный здесь же ID отправляется в очередь сообщений.
          * Там его подберёт созданный далее поток клиента.
          */
-        sprintf(net_data, "%d", client_max_id);
-        while (mq_send(local_mq_desc, net_data, strlen(net_data),
-                      0) != 0) {}
-        memset(net_data, 0, sizeof(net_data));
+        while (mq_send(local_mq_desc, (char *)&client_max_id,
+                      sizeof(client_max_id), 0) != 0) {}
 
         /* Создание потока для клиента */
         sprintf(thread_name, "NET CL#%d", client_max_id);

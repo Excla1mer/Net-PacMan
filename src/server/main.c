@@ -47,7 +47,6 @@ int main()
 
   int count;
   int ret;
-  char message[100];
 
   /* Структура атрибутов очередей */
   struct mq_attr queueAttr;
@@ -63,9 +62,10 @@ int main()
   server_addr_struct.sin_port = htons(SERVER_PORT);
 
   /*Настройка атрибутов очереди*/
+  mq_msg_size = sizeof(int)*NET_DATA_SIZE;
   queueAttr.mq_flags = 0;
   queueAttr.mq_maxmsg = 10;
-  queueAttr.mq_msgsize = 50;
+  queueAttr.mq_msgsize = mq_msg_size;
   queueAttr.mq_curmsgs = 0;
 
   /*
@@ -89,7 +89,6 @@ int main()
   memset(network_cl_handling_tid, 0, sizeof(network_cl_handling_tid));
 
   client_max_id = -1;
-  memset(message, 0, sizeof(message));
 
   ready_count = 0;
 
