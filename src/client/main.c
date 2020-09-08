@@ -14,48 +14,8 @@
 #include "help_sets.h"
 #include "map.h"
 #include "../net_data_defs.h"
-
-#define SERVER_PORT 1234  // порт сервера
-#define SERVER_ADDR "10.0.2.20"
-//"185.255.132.26"
-int udp_server_port;
-int udp_sockfd;
-
-
-void* net_check(void* args)
-{
-  char buf[32];
-  struct sockaddr_in servaddr;
-  servaddr.sin_family = AF_INET; 
-  servaddr.sin_port = htons(udp_server_port); 
-  servaddr.sin_addr.s_addr = inet_addr("185.255.132.26");
- 
-  socklen_t len = sizeof(struct sockaddr_in);
-
-  struct player* players = (struct player*)args;
-  memset(buf, '0', 32);
-  while(1)
-  {
-    if(recvfrom(udp_sockfd, buf, 32, 0, (struct sockaddr*)&servaddr,
-        &len) == -1)
-    {
-      perror("Recv from server");
-      exit(-1);
-    }
-    int a = buf[0] - '0';
-    int b = buf[1] - '0';
-    players[a].dir = b;
-  }
-}
-
-void set_netdata(int* net_data, int a, int b, int c)
-{
-  net_data[0] = a;
-  net_data[1] = b;
-  net_data[2] = c;
-}
-
-void *client_check(void *param);
+#include "globals.h"
+#include "network.h"
 
 int main()
 {
@@ -65,11 +25,9 @@ int main()
  */
   int port = 7777;
   int tcp_sockfd;
-  int my_id = 0;
   char score[8];
   struct sockaddr_in server, cliaddr;
   char input[50];
-  //char *buf = calloc(5, 1);
   int net_data[3];
 
   memset(&server, 0, sizeof(server));
@@ -77,6 +35,7 @@ int main()
   server.sin_addr.s_addr = inet_addr(SERVER_ADDR); 
   server.sin_port = htons(SERVER_PORT);
 
+  memset(&cliaddr, 0, sizeof(cliaddr));
   cliaddr.sin_family = AF_INET;
   cliaddr.sin_addr.s_addr = INADDR_ANY;
   cliaddr.sin_port = htons(port);
@@ -113,28 +72,15 @@ int main()
   }
   printf("[main] - Successful connect\n");
   printf("[main] - Wait data from server...\n");
-  memset(net_data, 0, sizeof(net_data));
-  if((recv(tcp_sockfd, net_data, sizeof(net_data), 0)) == -1) 
-  {
-    perror("[main] Recv");
-    exit(1);
-  }
-  if(net_data[0] == ID_PORT)
-  {
-    printf("[main] - Got Id_PORT [%d:%d]\n", net_data[1], net_data[2]);
-    my_id = net_data[1];
-    udp_server_port = net_data[2];
-  }
-  else 
-  {
-    printf("[main] - Got wrong message %d %d %d\n", net_data[0], net_data[1],
-          net_data[2]);
-  }
-  server.sin_port = htons(udp_server_port);
+
   /* Поток для обработки состояний поключившихся и нажавших READY клиентов */
   pthread_t client_check_tid;
-  pthread_create(&client_check_tid, NULL, client_check, &tcp_sockfd);
-
+  if(pthread_create(&client_check_tid, NULL, client_check, &tcp_sockfd) != 0)
+  {
+    perror("[main] - Create client_check thread");
+    exit(-1);
+  }
+  
   while(1)
   {
     memset(input, '\0', sizeof(input));
@@ -156,31 +102,17 @@ int main()
   }
   printf("[main] - Wait all players...\n");
   pthread_join(client_check_tid, NULL);
+  server.sin_port = htons(udp_server_port);
   printf("[main] - max_players: %d\n", max_players);
-  // printf("[main] - Id: %d\n", my_id);
-  // if(send(tcp_sockfd, "0001", 5, TCP_NODELAY) == -1) 
-  // {
-  //   perror("[main] Send");
-  //   exit(1);
-  // }
-  // printf("[main] - Wait all players...\n");
-  // bzero(buf, 5);
-
-  // while((recv(tcp_sockfd, buf, 5, 0)) == 0){}
-  
-  // printf("[main] - Port: %s\n", buf);
-
-  // while((recv(tcp_sockfd, buf, 5, 0)) == 0){}
-  // printf("[main] - Some data: %s\n", buf);
 /*##############################################################################
  * Подготовка к началу игрового цикла 
  *##############################################################################
  */
-  /* Инициализация игроков */
   sfIntRect rect = {0, 0, 0, 0};
   struct player* players = calloc(sizeof(struct player), max_players);
   init_players(players, max_players, &rect);
-  
+  pthread_t* threads = malloc(sizeof(max_players) * sizeof(pthread_t));
+
   /* Создание слушающего потока для принятия данных */
   pthread_t listen_thread;
   pthread_create(&listen_thread, NULL, net_check, (void*)players);
@@ -217,7 +149,7 @@ int main()
   {
     /* Отслеживание времени */
     sfTime time = sfClock_getElapsedTime(clock);
-    float ttime = sfTime_asMicroseconds(time);
+    ttime = sfTime_asMicroseconds(time);
     sfClock_restart(clock);
     ttime /= 800;
 
@@ -233,40 +165,58 @@ int main()
     if(sfKeyboard_isKeyPressed(sfKeyLeft) && players[my_id].last_dir != 1)
     {
       players[my_id].last_dir = 1;
-      sendto(udp_sockfd, "1", 1, 0, (struct sockaddr*)&server, sizeof(server));
+      set_netdata(net_data, -1, -1, 1);
+      sendto(udp_sockfd, net_data, sizeof(net_data), 0,
+          (struct sockaddr*)&server, sizeof(server));
       printf("Send left key\n");
 
     }
     if(sfKeyboard_isKeyPressed(sfKeyRight) && players[my_id].last_dir != 0)
     {
       players[my_id].last_dir = 0;
-      sendto(udp_sockfd, "0", 1, 0, (struct sockaddr*)&server, sizeof(server));
+      set_netdata(net_data, -1, -1, 0);
+      sendto(udp_sockfd, net_data, sizeof(net_data), 0,
+          (struct sockaddr*)&server, sizeof(server));
       printf("Send right key\n");
     }
     if(sfKeyboard_isKeyPressed(sfKeyUp) && players[my_id].last_dir != 3)
     {
       players[my_id].last_dir = 3;
-      sendto(udp_sockfd, "3", 1, 0, (struct sockaddr*)&server, sizeof(server));
+      set_netdata(net_data, -1, -1, 3);
+      sendto(udp_sockfd, net_data, sizeof(net_data), 0,
+          (struct sockaddr*)&server, sizeof(server));
       printf("Send up key\n");
-
     }
     if(sfKeyboard_isKeyPressed(sfKeyDown) && players[my_id].last_dir != 2)
     {
       players[my_id].last_dir = 2;
-      sendto(udp_sockfd, "2", 1, 0, (struct sockaddr*)&server, sizeof(server));
+      set_netdata(net_data, -1, -1, 2);
+      sendto(udp_sockfd, net_data, sizeof(net_data), 0,
+          (struct sockaddr*)&server, sizeof(server));
       printf("Send down key\n");
-
     }
     /* Обновление данных игрока */
-    update(players, ttime, max_players);
+    for(int i = 0; i < max_players; ++i)
+    {
+      if(pthread_create(&threads[i], NULL, update, (void*)&players[i]) != 0)
+      {
+        perror("[main] - Create update thread");
+        exit(-1);
+      }
+    }
+    for(int i = 0; i < max_players; ++i)
+    {
+      pthread_join(threads[i], NULL);
+    }
     /* Очистка окна*/
     sfRenderWindow_clear(window, sfBlack);
     /* Отрисовка карты */
     draw_map(window, map_sprite);
 
     /* Отрисовка правого меню других игроков */
+    /* TODO: засунуть в поток update!!! */
     int place = 1;
-    for(int i=0; i < max_players; ++i)
+    for(int i = 0; i < max_players; ++i)
     {
       sfRenderWindow_drawSprite(window, players[i].sprite, NULL);
       if(i != my_id)

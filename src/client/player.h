@@ -14,7 +14,7 @@ struct player
 };
 
 void init_players(struct player* p, int max_players, sfIntRect* rect);
-void update(struct player* p, float time, int max_players);
+void* update(void* args);
 void action_with_map(struct player* p);
 
 #endif // PLAYER_H
