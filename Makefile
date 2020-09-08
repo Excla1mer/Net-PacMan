@@ -18,7 +18,7 @@ CLIENT_SOURCES := src/client/main.c\
 									src/client/map.c\
 									src/client/help_sets.c\
 									src/client/player.c\
-									src/client/client_check.c
+									src/client/network.c
 CLIENT_LIBS := -lpthread -lcsfml-graphics -lcsfml-window -lcsfml-system
 
 .PHONY: all
