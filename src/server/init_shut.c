@@ -137,16 +137,6 @@ int init_shut()
      printf("[%s] - Unable to destroy new port searching mutex."\
             "Proceeding anyway...\n", section);
    }
-   /* Семафор окончания игры */
-   if (sem_destroy(&endgame_lock) == 0)
-   {
-     printf("[%s] - Endgame semaphore destroyed\n", section);
-   }
-   else
-   {
-     printf("[%s] - Unable to destroy endgame semaphore mutex."\
-            "Proceeding anyway...\n", section);
-   }
  }
 
 /*##############################################################################

@@ -237,8 +237,6 @@ int main()
   }
   ready_count_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
   new_port_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
-  /* Семафор на старте уже нулевой, то есть занятый */
-  sem_init(&endgame_lock, 0, 0);
 
 /*##############################################################################
  * Свободное ожидание

@@ -70,6 +70,3 @@ pthread_t network_cl_handling_tid[MAX_PLAYERS];
 pthread_mutex_t input_handling_lock;
 pthread_mutex_t ready_count_lock;
 pthread_mutex_t new_port_lock;
-
-/* Семафор */
-sem_t endgame_lock;

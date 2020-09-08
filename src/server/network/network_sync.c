@@ -87,7 +87,7 @@ void *network_sync()
           /* Отправка данных текущего клиента всем клиентам вообще*/
           for (count2 = 0; count2 <= client_max_id; count2++)
           {
-            /* Отправка по TCP */
+            /* Отправка по TCP (по TCP ли? возможно, клиенту будет накладно)*/
             if (send(net_client_desc[count2], net_data, sizeof(net_data),
                     TCP_NODELAY) <= 0)
             {

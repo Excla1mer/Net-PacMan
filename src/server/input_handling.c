@@ -102,13 +102,22 @@ void *input_handling()
     /* /list_players - вывести список подключенных клиентов. */
     else if(strcmp(input, "/list_players\n") == 0)
     {
-      printf(" Currently connected players:\n");
-      for(count = 0; count <= client_max_id; count++)
+      if(client_max_id >= 0)
       {
-        printf("  Player#%d [%s:%d]\n",
-                count,
-                inet_ntoa(net_client_addr[count].sin_addr),
-                ntohs(net_client_addr[count].sin_port));
+        printf("########################################################\n"\
+        " Currently connected players:\n");
+        for(count = 0; count <= client_max_id; count++)
+        {
+          printf("  Player#%d [%s:%d]\n",
+          count,
+          inet_ntoa(net_client_addr[count].sin_addr),
+          ntohs(net_client_addr[count].sin_port));
+        }
+        printf("########################################################\n");
+      }
+      else
+      {
+        printf("\n No connected players!\n\n");
       }
     }
 

@@ -17,4 +17,5 @@ void *network_sync();
 int init_shut();
 int launch_thread(pthread_t*, void *(*)(void *), const char*);
 int close_thread(pthread_t, const char*);
-int close_sock(int, const char *);
+int close_sock(int, const char*);
+int clear_mq(mqd_t, const char*);

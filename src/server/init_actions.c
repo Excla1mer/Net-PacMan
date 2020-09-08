@@ -165,3 +165,52 @@ int close_sock(int sock, const char *sock_name)
    }
    return 0;
 }
+
+/*##############################################################################
+ * Очистка очереди сообщений (изьятие всех сообщений из неё)
+ *##############################################################################
+ */
+
+int clear_mq(mqd_t mq_desc, const char *mq_name)
+{
+  const char *section = "CLEAR MQ";
+
+  struct mq_attr attr;
+
+  int count;
+  int buf[NET_DATA_SIZE];
+
+  count = 0;
+  memset(buf, 0, sizeof(buf));
+
+  /* Очистка */
+  while (1)
+  {
+   if (mq_getattr(mq_desc, &attr) < 0)
+   {
+     perror("MQ GETATTR");
+     return -1;
+   }
+   /* Пока в очереди есть сообщения - считывать их */
+   if (attr.mq_curmsgs > 0)
+   {
+     if(mq_receive(mq_desc, (char *)&buf, mq_msg_size, NULL) < 0)
+     {
+       perror("MQ RECV");
+       return -1;
+     }
+     count++;
+     memset(buf, 0, sizeof(buf));
+   }
+   else
+   {
+     break;
+   }
+  }
+
+  if(count != 0)
+  {
+    printf("[%s] - Flushed (%d) messages from (%s)\n", section, count, mq_name);
+  }
+  return 0;
+}

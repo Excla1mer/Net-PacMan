@@ -51,13 +51,11 @@ void *network_cl_handling()
 
   unsigned int new_port;
 
-
   for (count = 0; count < NET_DATA_SIZE; count++)
   {
     net_data[count] = -1;
   }
   memset(section, 0, sizeof(section));
-
   count = 0;
 
 /*##############################################################################
@@ -246,39 +244,12 @@ void *network_cl_handling()
      * Личный сокет клиента теперь привязан к нему, так что можно не указывать
      * адрес, а просто отсылать в сокет.
      */
-    if(recv(udp_cl_sock_desc[client_id], net_data, sizeof(net_data),
-            0) > 0)
+    if(recv(udp_cl_sock_desc[client_id], net_data, sizeof(net_data), 0) > 0)
     {
       /*printf("[%s] - (UDP) Message from [%s:%d]: %d/%d/%d\n", section,
               inet_ntoa(net_client_addr[client_id].sin_addr),
               ntohs(net_client_addr[client_max_id].sin_port),
               net_data[0], net_data[1], net_data[2]);*/
-
-      /*
-       * Проверка, было ли это сообщение, о конце игры.
-       * Если да - сообщить об этом клиентам и оборвать цикл.
-       */
-      if (*type == ENDGAME)
-      {
-        printf("[%s] - Player ends the game\n", section);
-        /* Отправка остальным клиентам сообщения о конце игры. */
-        *type = ENDGAME; /* Конец игры*/
-        *data1 = client_id; /* Номер клиента */
-        for(count = 0; count < client_max_id; count++)
-        {
-          if ((send(net_client_desc[count], net_data,
-                      sizeof(net_data), TCP_NODELAY)) == -1)
-          {
-            perror("TCP SEND ENDGAME");
-          }
-        }
-        break;
-      }
-
-      /*
-       * Если это не конец игры - значит это просто информация от клиента о
-       * его направлении движения. Оно отправляется в поток UDP рассылки.
-       */
 
       /* Клиент мог и не обозначить все эти данные. Сервер уточняет их. */
       *type = CL_DIR;
@@ -298,23 +269,5 @@ void *network_cl_handling()
         net_data[count] = -1;
       }
     }
-  }
-  /*
-   * Здесь, вне цикла, поток окажется только получив от своего клиента
-   * сообщение об окончании игры. Поток даст понять об этом потоку сетевого
-   * контроля (network_control) через семафор, а сам уснёт.
-   */
-
-  /*
-   * Инкрементировать(разблокировать) семафор под самый конец, чтобы не
-   * закрыться из "network_control" раньше времени
-   */
-  sem_post(&endgame_lock);
-  /*
-   * Не слишком красиво, но поток будет просто спать. Его окончат в
-   * "network_control" */
-  while(1)
-  {
-    sleep(10);
   }
 }
