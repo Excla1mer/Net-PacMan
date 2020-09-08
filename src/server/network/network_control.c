@@ -86,15 +86,18 @@ void *network_control()
 * Запуск потока подключения клиентов (network_accept)
 *##############################################################################
 */
-
-      if (launch_thread(&network_accept_tid, network_accept, "NET ACCEPT") != 0)
+      if(network_accept_tid == 0)
       {
-        printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
-                "[%s] - Failed on crucial part here.\n"\
-                "        Server will now close current game sesssion "\
-                "and start new one.\n", section);
-        /* Провал здесь приводит к перезапуску цикла. */
-        break;
+        if (launch_thread(&network_accept_tid, network_accept, "NET ACCEPT")
+                          != 0)
+        {
+          printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
+          "[%s] - Failed on crucial part here.\n"\
+          "        Server will now close current game sesssion "\
+          "and start new one.\n", section);
+          /* Провал здесь приводит к перезапуску цикла. */
+          break;
+        }
       }
 
 /*##############################################################################
