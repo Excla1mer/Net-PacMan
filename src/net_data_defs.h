@@ -10,9 +10,6 @@
 #define CL_READY 3    /* data[CL_READY, ID, (число клиентов)] */
 #define CL_CONNECT 4  /* data[CL_CONNECT, ID, (число клиентов)] */
 #define CL_DIR 5      /* data[CL_DIR, ID, DIR] */
-
-#define ENDGAME 9      /* data[ENDGAME, ID, -] */
-
-int max_players;
+#define ENDGAME 9     /* data[ENDGAME, ID, -] */
 
 #endif /* NET_DATA_DEFS_H */
