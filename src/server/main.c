@@ -106,8 +106,10 @@ int main()
   if (launch_thread(&input_handling_tid, input_handling, "INPUT HANDLING") != 0)
   {
     /* Ничего подчищать не нужно, так как ничего и не было создано. Выход. */
-    printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
-            "[%s] - Failed on crucial part here. Exiting program...\n",
+    printf("\033[0;31m"\
+            "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
+            "[%s] - Failed on crucial part here. Exiting program..."\
+            "\033[0m\n",
             section);
     exit(0);
   }
@@ -139,7 +141,7 @@ int main()
       perror("TCP SOCKET");
       break;
     }
-    printf("[%s] - (TCP) Socket created\n", section);
+    /*printf("[%s] - (TCP) Socket created\n", section);*/
 
     /* Привязка сокета */
     if ((bind(tcp_sock_desc, (struct sockaddr *)&server_addr_struct,
@@ -158,7 +160,7 @@ int main()
       perror("TCP LISTEN");
       break;
     }
-    printf("[%s] - (TCP) Socket set to listening mode\n", section);
+    /*printf("[%s] - (TCP) Socket set to listening mode\n", section);*/
 
     /*
      * Цикл не был разорван ранее, а значит, всё прошло нормально и все задачи
@@ -176,8 +178,10 @@ int main()
   if (ret == -1)
   {
     /* Здесь перед выходом уже потребуется очистка */
-    printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
-            "[%s] - Failed on crucial part here. Exiting program...\n",
+    printf("\033[0;31m"\
+            "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
+            "[%s] - Failed on crucial part here. Exiting program..."\
+            "\033[0m\n",
             section);
     init_shut();
     exit(0);
@@ -198,7 +202,7 @@ int main()
         perror("LOCAL MQ");
         break;
       }
-    printf("[%s] - Local message queue created\n", section);
+    /*printf("[%s] - Local message queue created\n", section);*/
 
     if ((net_mq_desc = mq_open(NET_MQ, O_RDWR | O_CREAT, 0655,
                                 &queueAttr)) == -1)
@@ -206,15 +210,17 @@ int main()
         perror("NET MQ");
         break;
       }
-    printf("[%s] - Network message queue created\n", section);
+    /*printf("[%s] - Network message queue created\n", section);*/
     ret = 0;
     break;
   }
 
   if (ret == -1)
   {
-    printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
-            "[%s] - Failed on crucial part here. Exiting program...\n",
+    printf("\033[0;31m"\
+            "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
+            "[%s] - Failed on crucial part here. Exiting program..."\
+            "\033[0m\n",
             section);
     init_shut();
     exit(0);
@@ -229,8 +235,10 @@ int main()
   if (launch_thread(&network_control_tid, network_control,
                     "NET CONTROL") != 0)
   {
-    printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
-            "[%s] - Failed on crucial part here. Exiting program...\n",
+    printf("\033[0;31m"\
+            "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
+            "[%s] - Failed on crucial part here. Exiting program..."\
+            "\033[0m\n",
             section);
    init_shut();
    exit(0);
@@ -251,7 +259,7 @@ int main()
    * как завершился он только после команды /shut - конец работы программы.
    */
   pthread_join(input_handling_tid, NULL);
-  printf("[%s] - Input handling exited\n", section);
+  /*printf("[%s] - Input handling exited\n", section);*/
 
   printf("[%s] - Server shuted down\n", section);
   exit(0);

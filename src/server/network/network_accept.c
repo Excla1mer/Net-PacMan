@@ -49,7 +49,7 @@ void *network_accept()
   }
   count = 0;
 
-  printf("[%s] - Started\n", section);
+  /*printf("[%s] - Started\n", section);*/
 
 /*##############################################################################
  * Подключение и подготовка игроков
@@ -105,8 +105,8 @@ void *network_accept()
             perror("TCP SEND NEW CONNECT");
           }
         }
-        printf("[%s] - Notified clients about newly connected client\n",
-                section);
+        /*printf("[%s] - Notified clients about newly connected client\n",
+                section);*/
         for (count = 0; count < NET_DATA_SIZE; count++)
         {
           net_data[count] = -1;

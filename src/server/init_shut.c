@@ -37,7 +37,7 @@ int init_shut()
 
   memset(name, 0, sizeof(name));
 
-  printf("[%s] - Called\n", section);
+  /*printf("[%s] - Called\n", section);*/
 
 /*##############################################################################
  * Остановка потоков

@@ -44,7 +44,7 @@ void *network_sync()
   int net_data[NET_DATA_SIZE];
   /* Указатели на различные данные в массиве. (для удобства обращения) */
   int *type = &net_data[0];
-  int *data1 = &net_data[1];
+  /*int *data1 = &net_data[1];*/
   /*int *data2 = &net_data[2];*/
 
   ret = -1;
@@ -53,7 +53,7 @@ void *network_sync()
     net_data[count] = -1;
   }
 
-  printf("[%s] - Started\n", section);
+  /*printf("[%s] - Started\n", section);*/
 
   /*
    * Прямо на старте запускать синхронизацию необходимости нет, поэтому поток

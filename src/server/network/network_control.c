@@ -79,8 +79,12 @@ void *network_control()
 
   while(1) /* Общий бесконечный цикл игры */
   {
-    printf("\n-------------------------------------------------------\n"\
-            "[%s] - New game session started\n", section);
+    printf("\033[0;33m"\
+            "-------------------------------------------------------\n"\
+            "[%s] - New game session started"\
+            "\033[0m\n",
+             section);
+
     /*
      * Цикл, в котором игра начинается и идёт. Вне него - она завершается. Если
      * оборвать этот цикл, текущая игровая сессия сначала завершится, а потом
@@ -97,10 +101,13 @@ void *network_control()
         if (launch_thread(&network_accept_tid, network_accept, "NET ACCEPT")
                           != 0)
         {
-          printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
-          "[%s] - Failed on crucial part here.\n"\
-          "        Server will now close current game sesssion "\
-          "and start new one.\n", section);
+          printf("\033[0;31m"\
+                  "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
+                  "[%s] - Failed on crucial part here\n"\
+                  "       Server will now close current game sesssion "\
+                  "and start new one."\
+                  "\033[0m\n",
+                  section);
           /* Провал здесь приводит к перезапуску цикла. */
           break;
         }
@@ -155,7 +162,7 @@ void *network_control()
         pthread_cancel(network_accept_tid);
         pthread_join(network_accept_tid, NULL);
         network_accept_tid = 0;
-        printf("[%s] - (NET ACCEPT) thread canceled and joined\n", section);
+        /*printf("[%s] - (NET ACCEPT) thread canceled and joined\n", section);*/
 
         /*
         * Небольшая пауза даёт возможность потокам клиентов отослать своим
@@ -179,10 +186,13 @@ void *network_control()
          */
         if (launch_thread(&network_dist_tid, network_dist, "NET DIST") != 0)
         {
-          printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
-                "[%s] - Failed on crucial part here.\n"\
-                "        Server will now close current game sesssion "\
-                "and start new one.\n", section);
+          printf("\033[0;31m"\
+                  "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
+                  "[%s] - Failed on crucial part here\n"\
+                  "       Server will now close current game sesssion "\
+                  "and start new one."\
+                  "\033[0m\n",
+                  section);
           break;
         }
 
@@ -193,10 +203,13 @@ void *network_control()
          */
         if (launch_thread(&network_sync_tid, network_sync, "NET SYNC") != 0)
         {
-          printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
-                  "[%s] - Failed on crucial part here.\n"\
-                  "        Server will now close current game sesssion "\
-                  "and start new one.\n", section);
+          printf("\033[0;31m"\
+                  "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
+                  "[%s] - Failed on crucial part here\n"\
+                  "       Server will now close current game sesssion "\
+                  "and start new one."\
+                  "\033[0m\n",
+                  section);
           break;
         }
       }
@@ -295,8 +308,12 @@ void *network_control()
      */
     if(restart_flag == 0 && player_id >= 0)
     {
-      printf("-------------------------------------------------------\n"\
-              "[%s] - Endgame reached\n", section);
+      printf("\033[0;33m"\
+              "-------------------------------------------------------\n"\
+              "[%s] - Endgame reached"\
+              "\033[0m\n",
+               section);
+
       printf("[%s] - Player#%d [%s:%d] ends the game\n", section,
               player_id,
               inet_ntoa(net_client_addr[player_id].sin_addr),
@@ -304,8 +321,11 @@ void *network_control()
     }
     else
     {
-      printf("-------------------------------------------------------\n"\
-              "[%s] - Forced restart\n", section);
+      printf("\033[0;33m"\
+              "-------------------------------------------------------\n"\
+              "[%s] - Forced restart"\
+              "\033[0m\n",
+               section);
     }
 
     /* Закрываются ненужные теперь потоки и сокеты. */
