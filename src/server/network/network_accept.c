@@ -29,7 +29,7 @@ void *network_accept()
  * Объявление и определение/подготовка данных
  *##############################################################################
  */
-  const char *section = "NET ACCEPT";
+  const char *section = "NET ACPT";
 
 
   int count;

@@ -104,9 +104,9 @@ void *network_sync()
               }
             }
           }
-          for (count = 0; count < NET_DATA_SIZE; count++)
+          for (count2 = 0; count2 < NET_DATA_SIZE; count2++)
           {
-            net_data[count] = -1;
+            net_data[count2] = -1;
           }
         }
       }

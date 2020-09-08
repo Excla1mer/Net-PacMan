@@ -71,7 +71,6 @@ void *network_cl_handling()
       /* Из префикса и ID собирается имя секции */
       sprintf(section, "%s#%d", section_prefix, client_id);
 
-      printf("[%s] - Started\n", section);
       printf("[%s] - Hadling Player#%d [%s:%d]\n", section, client_id,
               inet_ntoa(net_client_addr[client_id].sin_addr),
               ntohs(net_client_addr[client_id].sin_port));

@@ -47,7 +47,7 @@ void *input_handling()
     " \n"\
     "########################################################\n";
 
-  printf("[%s] - Started\n", section);
+  /*printf("[%s] - Started\n", section);*/
   printf("%s", command_list);
   /*count = 0;*/
 
