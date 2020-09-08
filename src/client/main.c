@@ -79,7 +79,7 @@ int main()
   printf("[main] - Successful connect\n");
   printf("[main] - Wait data from server...\n");
 
-  struct player* players = calloc(sizeof(struct player), 1);
+  struct player* players = calloc(sizeof(struct player), 4);
   /* Поток для обработки состояний поключившихся и нажавших READY клиентов */
   pthread_t client_check_tid;
   if(pthread_create(&client_check_tid, NULL, client_check, (void*)players) != 0)
@@ -117,7 +117,7 @@ int main()
  *##############################################################################
  */
   sfIntRect rect = {0, 0, 0, 0};
-  players = realloc(players, sizeof(struct player) * (max_players));
+  //players = realloc(players, sizeof(struct player) * (max_players));
   init_players(players, max_players, &rect);
   pthread_t* threads = malloc(sizeof(max_players) * sizeof(pthread_t));
 
