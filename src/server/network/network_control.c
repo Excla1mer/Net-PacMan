@@ -36,20 +36,18 @@ void *network_control()
 
   int count;
   /* Массив сетевых данных, передаваемый между клиентом и потоком */
-  int net_data_int[NET_DATA_SIZE];
+  int net_data[NET_DATA_SIZE];
   /* Указатели на различные данные в массиве. (для удобства обращения) */
-  int *type = &net_data_int[0];
-  int *data1 = &net_data_int[1];
-  /*int *data2 = &net_data_int[2];*/
+  int *type = &net_data[0];
+  int *data1 = &net_data[1];
+  /*int *data2 = &net_data[2];*/
 
-  char net_data[50];
   char name[9];
 
-  memset(net_data, 0, sizeof(net_data));
   memset(name, 0, sizeof(name));
   for (count = 0; count < NET_DATA_SIZE; count++)
   {
-    net_data_int[count] = -1;
+    net_data[count] = -1;
   }
   count = 0;
 
@@ -137,19 +135,30 @@ void *network_control()
     *data1 = client_max_id + 1;
     for (count = 0; count <= client_max_id; count++)
     {
-      send(net_client_desc[count], net_data_int, sizeof(net_data_int),
+      send(net_client_desc[count], net_data, sizeof(net_data),
       TCP_NODELAY);
     }
-    memset(net_data, 0, sizeof(net_data));
 
-
+    /*
+     * Запуск потока сетевой рассылки.
+     *
+     * Если эта часть провалится - поток не заснёт перед семафором окончания
+     * игры, а это приведёт к закрытию всех потоков текущей игровой сессии,
+     * и старту новых. Проще говоря, произойдёт перезапуск, как если бы игра
+     * была окончена по инициативе клиента.
+     */
     if (launch_thread(&network_dist_tid, network_dist, "NET DIST") != 0)
     {
+      printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
+              "[%s] - Failed on crucial part here.\n"\
+              "        Server will now close current game sesssion "\
+              "and start new one.\n", section);
       /*
-       * Здесь нужно будет решить, что будет делать сервер в случае неуспешного
-       * запуска потока рассылки. Вероятно, он перезапустит сессию, или
-       * закроется вовсе, оставив решения пользователю.
-       */
+      * Если не инкрементировать семафор - поток зависнет в ожидании конца игры,
+      * но так как это нестандартаная ситуация (поток сетевой рассылки не был
+      * запущен), конец игры и не наступит, так что он вызывается искусствено.
+      */
+      sem_post(&endgame_lock);
     }
 
 /*##############################################################################

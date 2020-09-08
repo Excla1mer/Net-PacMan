@@ -18,12 +18,20 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 
 #include "../server_defs.h"
+#include "../../net_data_defs.h"
 
 /* Частота, в секундах, повтора синхронизации */
 #define SYNC_FREQ 3
+/* Пауза, в секундах, перед стартом синхронизации, после запуска потока */
+#define INIT_SLEEP 5
+
+/* Сетевые константы. Будут перенесенны в основной файл после согласования */
+#define SYN_REQ 6
+#define SYN_REP 7
 
 void *network_sync()
 {
@@ -34,11 +42,18 @@ void *network_sync()
   const char *section = "NET SYNC";
 
   int count, count2;
-  char net_data[50];
-  char formatted_data[100];
 
-  memset(net_data, 0, sizeof(net_data));
-  memset(formatted_data, 0, sizeof(formatted_data));
+  /* Массив сетевых данных, передаваемый между клиентом и потоком */
+  int net_data[NET_DATA_SIZE];
+  /* Указатели на различные данные в массиве. (для удобства обращения) */
+  int *type = &net_data[0];
+  int *data1 = &net_data[1];
+  /*int *data2 = &net_data[2];*/
+
+  for (count = 0; count < NET_DATA_SIZE; count++)
+  {
+    net_data[count] = -1;
+  }
 
   printf("[%s] - Started\n", section);
 
@@ -46,14 +61,13 @@ void *network_sync()
    * Прямо на старте запускать синхронизацию необходимости нет, поэтому поток
    * спит какое-то время.
    */
-  sleep(10);
+  sleep(INIT_SLEEP);
 
 /*##############################################################################
  * Получение и пересылка данных клиентов
  *##############################################################################
  */
 
-  printf("[%s] - Sync-ing now\n", section);
   while (1)
   {
     printf("[%s] - Sync-ing clients\n", section);
@@ -61,28 +75,30 @@ void *network_sync()
     for (count = 0; count <= client_max_id; count++)
     {
       /* Отсылка запроса */
-      send(net_client_desc[count], "SYN_REQ", 7, 0);
-      /* Получение ответа - запрошенных данных */
-      recv(net_client_desc[count], net_data, 50, 0);
+      *type = SYN_REQ;
+      send(net_client_desc[count], net_data, sizeof(net_data), TCP_NODELAY);
 
-      /* Отправка данных текущего клиента всем клиентам вообще*/
-      sprintf(formatted_data, "ID:%d|SYN_REP:%s", count, net_data);
-      for (count2 = 0; count2 <= client_max_id; count2++)
+      /* Получение ответа - запрошенных данных */
+      if (recv(net_client_desc[count], net_data, sizeof(net_data), 0) > 0)
       {
-        /* Отправка по UDP */
-        if (send(udp_cl_sock_desc[count2], formatted_data, 100, 0) > 0)
+        if (*type == SYN_REP)
         {
-          printf("[%s] - Sync-ed client#%d\n", section, count);
-        }
-        else
-        {
-          printf("[%s] - Sync data for client#%d was not send! "\
-          "Proceeding anyway...\n", section, count);
+          *data1 = count;
+          /* Отправка данных текущего клиента всем клиентам вообще*/
+          for (count2 = 0; count2 <= client_max_id; count2++)
+          {
+            /* Отправка по TCP */
+            if (send(net_client_desc[count2], net_data, sizeof(net_data),
+                    TCP_NODELAY) <= 0)
+            {
+              printf("[%s] - Sync data for client#%d was not send! "\
+              "Proceeding anyway...\n", section, count);
+            }
+          }
         }
       }
-      memset(net_data, 0, sizeof(net_data));
-      memset(formatted_data, 0, sizeof(formatted_data));
     }
+    printf("[%s] - Sync finished\n", section);
     sleep(SYNC_FREQ);
   }
 }
