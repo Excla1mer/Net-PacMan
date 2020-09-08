@@ -40,9 +40,10 @@ void *input_handling()
         " \n"\
         " Server commands:\n"\
         " \n"\
-        " /shut - close program\n"\
+        " /shut         - close program\n"\
         " /list_players - list connected playrs\n"\
-        " /help - print this command list\n"\
+        " /restart      - end current and start new game session\n"\
+        " /help         - print this command list\n"\
         " \n"\
         "########################################################\n";
 
@@ -119,6 +120,12 @@ void *input_handling()
       {
         printf("\n No connected players!\n\n");
       }
+    }
+
+    /* /restart - окончание текущей и начало новой сессии игры. */
+    else if(strcmp(input, "/restart\n") == 0)
+    {
+      restart_flag = 1;
     }
 
     /* Ответ по-умолчанию - команда не найдена */
