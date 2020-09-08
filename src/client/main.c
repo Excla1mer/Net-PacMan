@@ -32,8 +32,8 @@ int main()
   int net_data[3];
 
   memset(&server, 0, sizeof(server));
-  server.sin_family = AF_INET;  
-  server.sin_addr.s_addr = inet_addr(SERVER_ADDR); 
+  server.sin_family = AF_INET;
+  server.sin_addr.s_addr = inet_addr(SERVER_ADDR);
   server.sin_port = htons(SERVER_PORT);
 
   memset(&cliaddr, 0, sizeof(cliaddr));
@@ -59,7 +59,7 @@ int main()
     perror("[main] UDP socket");
     exit(1);
   }
-  
+
   while(bind(tcp_sockfd, (struct sockaddr*)&cliaddr, sizeof(cliaddr)) == -1)
   {
     cliaddr.sin_port = htons(++port);
@@ -79,9 +79,10 @@ int main()
   printf("[main] - Successful connect\n");
   printf("[main] - Wait data from server...\n");
 
+  struct player* players = calloc(sizeof(struct player), 1);
   /* Поток для обработки состояний поключившихся и нажавших READY клиентов */
   pthread_t client_check_tid;
-  if(pthread_create(&client_check_tid, NULL, client_check, NULL) != 0)
+  if(pthread_create(&client_check_tid, NULL, client_check, (void*)players) != 0)
   {
     perror("[main] - Create client_check thread");
     exit(-1);
@@ -98,7 +99,7 @@ int main()
       net_data[0] = READY;
       net_data[1] = -1;
       net_data[2] = -1;
-      if(send(tcp_sockfd, net_data, sizeof(net_data), TCP_NODELAY) == -1) 
+      if(send(tcp_sockfd, net_data, sizeof(net_data), TCP_NODELAY) == -1)
       {
         perror("[main] Send");
         exit(1);
@@ -112,11 +113,11 @@ int main()
   printf("udp_server_port: %d\n", udp_server_port);
   printf("[main] - max_players: %d\n", max_players);
 /*##############################################################################
- * Подготовка к началу игрового цикла 
+ * Подготовка к началу игрового цикла
  *##############################################################################
  */
   sfIntRect rect = {0, 0, 0, 0};
-  struct player* players = calloc(sizeof(struct player), max_players);
+  players = realloc(players, sizeof(struct player) * (max_players));
   init_players(players, max_players, &rect);
   pthread_t* threads = malloc(sizeof(max_players) * sizeof(pthread_t));
 
@@ -145,7 +146,7 @@ int main()
   /* Создание окна */
   window = sfRenderWindow_create(mode, "PAC-MAN", sfResize | sfClose, NULL);
    if(!window)
-    return 1; 
+    return 1;
 
    /* Создание часов CSFML */
   sfClock* clock = sfClock_create();
