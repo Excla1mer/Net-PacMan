@@ -120,6 +120,7 @@ void action_with_map(struct player* p)
       {
         map[i][j] = '*';
         p->score += 1;
+        ++dots;
         return;
       }
       if(map[i][j] == 'r')

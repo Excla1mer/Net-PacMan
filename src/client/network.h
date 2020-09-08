@@ -5,6 +5,6 @@
 #define SERVER_ADDR "185.255.132.26"  // адрес сервера
 
 void* net_check(void* args);
-void* client_check(void* param);
+void* client_check(void* args);
 
 #endif // NETWORK_H

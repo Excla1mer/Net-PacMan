@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
+#include <semaphore.h>
 
 #include "player.h"
 #include "help_sets.h"
@@ -23,8 +24,8 @@ int main()
  * Объявление и определение/подготовка данных
  *##############################################################################
  */
+  sem_init(&sem, 0, 0);
   int port = 7777;
-  int tcp_sockfd;
   char score[8];
   struct sockaddr_in server, cliaddr;
   char input[50];
@@ -39,6 +40,11 @@ int main()
   cliaddr.sin_family = AF_INET;
   cliaddr.sin_addr.s_addr = INADDR_ANY;
   cliaddr.sin_port = htons(port);
+  if(pthread_mutex_init(&mutex, NULL))
+  {
+    printf("[main] - Error init mutex");
+    exit(-1);
+  }
 /*##############################################################################
  * Получение данных для настройки от сервера
  *##############################################################################
@@ -75,12 +81,12 @@ int main()
 
   /* Поток для обработки состояний поключившихся и нажавших READY клиентов */
   pthread_t client_check_tid;
-  if(pthread_create(&client_check_tid, NULL, client_check, &tcp_sockfd) != 0)
+  if(pthread_create(&client_check_tid, NULL, client_check, NULL) != 0)
   {
     perror("[main] - Create client_check thread");
     exit(-1);
   }
-  
+
   while(1)
   {
     memset(input, '\0', sizeof(input));
@@ -100,9 +106,10 @@ int main()
       break;
     }
   }
+  sem_wait(&sem);
   printf("[main] - Wait all players...\n");
-  pthread_join(client_check_tid, NULL);
   server.sin_port = htons(udp_server_port);
+  printf("udp_server_port: %d\n", udp_server_port);
   printf("[main] - max_players: %d\n", max_players);
 /*##############################################################################
  * Подготовка к началу игрового цикла 
@@ -117,6 +124,7 @@ int main()
   pthread_t listen_thread;
   pthread_create(&listen_thread, NULL, net_check, (void*)players);
 
+  /* Настройка размера окна */
   sfVideoMode mode = {1150, 950, 32};
   sfRenderWindow* window;
   sfEvent event;
@@ -136,11 +144,12 @@ int main()
 
   /* Создание окна */
   window = sfRenderWindow_create(mode, "PAC-MAN", sfResize | sfClose, NULL);
-  
-  /* Создание часов CSFML */
+   if(!window)
+    return 1; 
+
+   /* Создание часов CSFML */
   sfClock* clock = sfClock_create();
-  if(!window)
-    return 1;
+
 /*##############################################################################
  * Начало игрового цикла
  *##############################################################################
@@ -161,7 +170,6 @@ int main()
     }
 
     /* Обработка нажатых клавиш */
-    
     if(sfKeyboard_isKeyPressed(sfKeyLeft) && players[my_id].last_dir != 1)
     {
       players[my_id].last_dir = 1;
@@ -195,7 +203,34 @@ int main()
           (struct sockaddr*)&server, sizeof(server));
       printf("Send down key\n");
     }
+    /* Определение победителя после того, как все очки собраны */
+    if(dots >= MAX_DOTS)
+    {
+      int loose = 0;
+      for(int i = 0; i < max_players; ++i)
+      {
+        if(players[my_id].score < players[i].score)
+        {
+          printf("You loose\n");
+          loose = 1;
+          pthread_join(client_check_tid, NULL);
+          break;
+        }
+      }
+      if(loose)
+        break;
+      set_netdata(net_data, ENDGAME, my_id, -1);
+      if(send(tcp_sockfd, net_data, sizeof(net_data), 0) == -1)
+      {
+        perror("END message");
+        exit(-1);
+      }
+      printf("You win!\n");
+      pthread_join(client_check_tid, NULL);
+      break;
+    }
     /* Обновление данных игрока */
+    pthread_mutex_lock(&mutex);
     for(int i = 0; i < max_players; ++i)
     {
       if(pthread_create(&threads[i], NULL, update, (void*)&players[i]) != 0)
@@ -208,6 +243,8 @@ int main()
     {
       pthread_join(threads[i], NULL);
     }
+    pthread_mutex_unlock(&mutex);
+
     /* Очистка окна*/
     sfRenderWindow_clear(window, sfBlack);
     /* Отрисовка карты */
@@ -243,6 +280,10 @@ int main()
  * Освобождение ресурсов
  *##############################################################################
  */
+  for(int i = 0; i < max_players; ++i)
+  {
+    pthread_cancel(threads[i]);
+  }
   sfText_destroy(score_text);
   sfFont_destroy(font);
   sfRenderWindow_destroy(window);

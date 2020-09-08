@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 
 #include "../net_data_defs.h"
 #include "globals.h"
@@ -14,12 +15,11 @@
  * Поток, обрабатывающий сообщения для старта игры
  *##############################################################################
  */
-void* client_check(void* param)
+void* client_check(void* args)
 {
   int net_data[3];
   int connected_players = 0;
   int ready_players = 0;
-  int tcp_sockfd = *(int*)param;
   printf("[network] - START\n");
   while(1)
   {
@@ -28,11 +28,13 @@ void* client_check(void* param)
       perror("[network] Recv init data");
       exit(1);
     }
+    printf("data[0]: %d,   data[1]: %d \n", net_data[0], net_data[1]);
     switch(net_data[0])
     {
       case START:  
         printf("[network] - Got START from server\n");
-        return (void*)0;
+        sem_post(&sem);
+        break;
       case CL_READY:
         ready_players = net_data[2];
         max_players = ready_players;
@@ -47,12 +49,16 @@ void* client_check(void* param)
       case ID_PORT:
         printf("[network] - Got Id_PORT [%d:%d]\n", net_data[1], net_data[2]);
         my_id = net_data[1];
+        win_id = net_data[1];
         udp_server_port = net_data[2];
+        break;
+      case ENDGAME:
+        win_id = net_data[1];
+        return (void*)0;
         break;
     }
   }
   printf("[network] - End...\n");
-  return (void*)0;
 }
 /*##############################################################################
  * Поток определяет направление движения игрока
@@ -62,22 +68,22 @@ void* net_check(void* args)
 {
   int net_data[3];
   int data_size = sizeof(net_data);
-  struct sockaddr_in servaddr;
-  servaddr.sin_family = AF_INET; 
-  servaddr.sin_port = htons(udp_server_port); 
-  servaddr.sin_addr.s_addr = inet_addr(SERVER_ADDR);
- 
-  socklen_t len = sizeof(struct sockaddr_in);
 
   struct player* players = (struct player*)args;
   while(1)
   {
-    if(recvfrom(udp_sockfd, net_data, data_size, 0,
-          (struct sockaddr*)&servaddr, &len) == -1)
+    if(recv(udp_sockfd, net_data, data_size, 0) == -1)
     {
       perror("[network] - Recv players dir");
       exit(-1);
     }
-    players[net_data[1]].dir = net_data[2];
+    switch(net_data[0])
+    {
+      case CL_DIR:
+        pthread_mutex_lock(&mutex);
+        players[net_data[1]].dir = net_data[2];
+        pthread_mutex_unlock(&mutex);
+        break;
+    }
   }
 }

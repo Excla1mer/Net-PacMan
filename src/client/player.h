@@ -3,6 +3,9 @@
 
 #include <SFML/Graphics.h>
 
+#define WIN 1
+#define LOOSE 0
+
 struct player
 {
   int dir, last_dir, w, h, score;
