@@ -237,6 +237,7 @@ int main()
   }
   ready_count_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
   new_port_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
+  restart_flag = 0;
 
 /*##############################################################################
  * Свободное ожидание

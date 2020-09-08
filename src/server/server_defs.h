@@ -50,6 +50,9 @@ int client_max_id;
 /* Счётчик готовых клиентов */
 int ready_count;
 
+/* Переменная-флаг принудительного перезапуска по команде на сервере. */
+int restart_flag;
+
 /* Сетевые данные сервера */
 struct sockaddr_in server_addr_struct;
 

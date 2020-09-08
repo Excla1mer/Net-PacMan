@@ -106,7 +106,7 @@ int close_thread(pthread_t tid, const char *thread_name)
    count = 0;
    while (pthread_join(tid, NULL) != 0)
    {
-     perror("JOIN JOIN");
+     perror("THREAD JOIN");
       if (count < MAX_ATTEMPTS)
       {
         /*

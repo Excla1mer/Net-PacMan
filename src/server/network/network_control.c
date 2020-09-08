@@ -80,21 +80,24 @@ void *network_control()
      * оборвать этот цикл, текущая игровая сессия сначала завершится, а потом
      * начнётся новая, с этого места.
      */
-    while(1) /* Цикл текущей игровой сессии */
+    while(1 && restart_flag == 0) /* Цикл текущей игровой сессии */
     {
 /*##############################################################################
 * Запуск потока подключения клиентов (network_accept)
 *##############################################################################
 */
-
-      if (launch_thread(&network_accept_tid, network_accept, "NET ACCEPT") != 0)
+      if(network_accept_tid == 0)
       {
-        printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
-                "[%s] - Failed on crucial part here.\n"\
-                "        Server will now close current game sesssion "\
-                "and start new one.\n", section);
-        /* Провал здесь приводит к перезапуску цикла. */
-        break;
+        if (launch_thread(&network_accept_tid, network_accept, "NET ACCEPT")
+                          != 0)
+        {
+          printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
+          "[%s] - Failed on crucial part here.\n"\
+          "        Server will now close current game sesssion "\
+          "and start new one.\n", section);
+          /* Провал здесь приводит к перезапуску цикла. */
+          break;
+        }
       }
 
 /*##############################################################################
@@ -102,7 +105,7 @@ void *network_control()
 *##############################################################################
 */
 
-      while(1)
+      while(1  && restart_flag == 0)
       {
         pthread_mutex_lock(&ready_count_lock);
 
@@ -135,44 +138,47 @@ void *network_control()
  *##############################################################################
  */
 
-      printf("[%s] - All players set and ready\n", section);
-
-      /*
-      * Стоит как можно раньше закрыть поток принятия подключений. Поэтому,
-      * поток закрывается прямо здесь, без вызова "close_thread"
-      */
-      pthread_cancel(network_accept_tid);
-      pthread_join(network_accept_tid, NULL);
-      network_accept_tid = 0;
-      printf("[%s] - (NET ACCEPT) thread canceled and joined\n", section);
-
-      /*
-      * Небольшая пауза даёт возможность потокам клиентов отослать своим
-      * подопечным порты для UDP соединения
-      */
-      sleep(SLEEP_TIME);
-
-      /* Оповещение клиентов о готовности начать и количестве игроков. */
-      *type = START;
-      *data1 = client_max_id + 1;
-      for (count = 0; count <= client_max_id; count++)
+      if(restart_flag == 0)
       {
-        send(net_client_desc[count], net_data, sizeof(net_data),
-        TCP_NODELAY);
-      }
+        printf("[%s] - All players set and ready\n", section);
 
-      /*
-       * Запуск потока сетевой рассылки.
-       *
-       * Провал здесь приводит к перезапуску цикла игры.
-       */
-      if (launch_thread(&network_dist_tid, network_dist, "NET DIST") != 0)
-      {
-        printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
-              "[%s] - Failed on crucial part here.\n"\
-              "        Server will now close current game sesssion "\
-              "and start new one.\n", section);
-        break;
+        /*
+        * Стоит как можно раньше закрыть поток принятия подключений. Поэтому,
+        * поток закрывается прямо здесь, без вызова "close_thread"
+        */
+        pthread_cancel(network_accept_tid);
+        pthread_join(network_accept_tid, NULL);
+        network_accept_tid = 0;
+        printf("[%s] - (NET ACCEPT) thread canceled and joined\n", section);
+
+        /*
+        * Небольшая пауза даёт возможность потокам клиентов отослать своим
+        * подопечным порты для UDP соединения
+        */
+        sleep(SLEEP_TIME);
+
+        /* Оповещение клиентов о готовности начать и количестве игроков. */
+        *type = START;
+        *data1 = client_max_id + 1;
+        for (count = 0; count <= client_max_id; count++)
+        {
+          send(net_client_desc[count], net_data, sizeof(net_data),
+          TCP_NODELAY);
+        }
+
+        /*
+        * Запуск потока сетевой рассылки.
+        *
+        * Провал здесь приводит к перезапуску цикла игры.
+        */
+        if (launch_thread(&network_dist_tid, network_dist, "NET DIST") != 0)
+        {
+          printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
+          "[%s] - Failed on crucial part here.\n"\
+          "        Server will now close current game sesssion "\
+          "and start new one.\n", section);
+          break;
+        }
       }
 
 /*##############################################################################
@@ -180,19 +186,22 @@ void *network_control()
  *##############################################################################
  */
 
-      /* Заполнение poll структуры дескрипторами клиентов */
-      for(count = 0; count <= client_max_id; count++)
+      if(restart_flag == 0)
       {
-        poll_descs[count].fd = net_client_desc[count];
-        /* Событие для проверки - есть данные для чтения */
-        poll_descs[count].events = POLLIN;
+        /* Заполнение poll структуры дескрипторами клиентов */
+        for(count = 0; count <= client_max_id; count++)
+        {
+          poll_descs[count].fd = net_client_desc[count];
+          /* Событие для проверки - есть данные для чтения */
+          poll_descs[count].events = POLLIN;
+        }
       }
 
       /*
       * Бесконечная прослушка дескрипторов. Обрывается только, если из одного из
       * них, от клиента, было полученно сообщение о конце игры.
       */
-      while(ret == 0)
+      while(ret == 0  && restart_flag == 0)
       {
         /* Блокирующееся ожидание событий в дескрипторах */
         poll(poll_descs, client_max_id + 1, -1);
@@ -215,7 +224,7 @@ void *network_control()
                 /* Отправка остальным клиентам сообщения о конце игры. */
                 *type = ENDGAME; /* Конец игры*/
                 *data1 = net_data[1]; /* Номер клиента */
-                for(count = 0; count < client_max_id; count++)
+                for(count = 0; count <= client_max_id; count++)
                 {
                   if ((send(net_client_desc[count], net_data,
                     sizeof(net_data), TCP_NODELAY)) == -1)
@@ -245,36 +254,53 @@ void *network_control()
 *##############################################################################
 */
 
-    printf("-------------------------------------------------------\n"\
-            "[%s] - Endgame reached\n", section);
-
     /*
      * После шага с прослушкой сетевых дескрипторов, поток знает, кто именно
      * окончил игру. Сообщение об этом отправляется в вывод.
      */
-    printf("[%s] - Player#%d [%s:%d] ends the game\n", section,
-            count,
-            inet_ntoa(net_client_addr[count].sin_addr),
-            ntohs(net_client_addr[count].sin_port));
+    if(restart_flag == 0)
+    {
+      printf("-------------------------------------------------------\n"\
+              "[%s] - Endgame reached\n", section);
+      printf("[%s] - Player#%d [%s:%d] ends the game\n", section,
+              count,
+              inet_ntoa(net_client_addr[count].sin_addr),
+              ntohs(net_client_addr[count].sin_port));
+    }
+    else
+    {
+      printf("-------------------------------------------------------\n"\
+              "[%s] - Forced restart\n", section);
+    }
+
     /* Закрываются ненужные теперь потоки и сокеты. */
     /* Поток сетевой рассылки */
-    close_thread(network_dist_tid, "NET DIST");
-    network_dist_tid = 0;
+    if(network_dist_tid != 0)
+    {
+      close_thread(network_dist_tid, "NET DIST");
+      network_dist_tid = 0;
+    }
 
     /* Различные клиентские данные */
     for (count = 0; count <= client_max_id; count++)
     {
       /* Клиентские потоки */
-      sprintf(name, "NET CL#%d", count);
-      close_thread(network_cl_handling_tid[count], name);
-      memset(name, 0, sizeof(name));
-      network_cl_handling_tid[count] = 0;
+      if(network_cl_handling_tid[count] != 0)
+      {
+        sprintf(name, "NET CL#%d", count);
+        close_thread(network_cl_handling_tid[count], name);
+        memset(name, 0, sizeof(name));
+        network_cl_handling_tid[count] = 0;
+      }
 
       /* Личные сокеты клиентов */
-      sprintf(name, "UDP CL#%d", count);
-      close_sock(udp_cl_sock_desc[count], name);
-      memset(name, 0, sizeof(name));
-      udp_cl_sock_desc[count] = 0;
+      if(udp_cl_sock_desc[count] != 0)
+      {
+        sprintf(name, "UDP CL#%d", count);
+        close_sock(udp_cl_sock_desc[count], name);
+        memset(name, 0, sizeof(name));
+        udp_cl_sock_desc[count] = 0;
+      }
 
       /* Прочие данные клиентов или о клиентах */
       memset(&net_client_addr[count], 0, sizeof(net_client_addr[count]));
@@ -284,6 +310,7 @@ void *network_control()
     ready_count = 0;
     client_max_id = -1;
     ret = 0;
+    restart_flag = 0;
 
     /* Сетевые poll-дескрипторы клиентов */
     memset(poll_descs, 0, sizeof(poll_descs));
