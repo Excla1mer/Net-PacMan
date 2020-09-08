@@ -37,12 +37,12 @@ void* client_check(void* param)
         ready_players = net_data[2];
         max_players = ready_players;
         printf("[network] - PLAYERS IN LOBBY : %d\n", connected_players);
-        printf("               - PLAYERS READY    : %d\n", ready_players);
+        printf("          - PLAYERS READY    : %d\n", ready_players);
         break;
       case CL_CONNECT:
         connected_players = net_data[2];
         printf("[network] - PLAYERS IN LOBBY : %d\n", connected_players);
-        printf("               - PLAYERS READY    : %d\n", ready_players);
+        printf("          - PLAYERS READY    : %d\n", ready_players);
         break;
       case ID_PORT:
         printf("[network] - Got Id_PORT [%d:%d]\n", net_data[1], net_data[2]);
