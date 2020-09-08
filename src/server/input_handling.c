@@ -36,16 +36,16 @@ void *input_handling()
   int count;
 
   const char *command_list =
-        "########################################################\n"\
-        " \n"\
-        " Server commands:\n"\
-        " \n"\
-        " /shut         - close program\n"\
-        " /list_players - list connected playrs\n"\
-        " /restart      - end current and start new game session\n"\
-        " /help         - print this command list\n"\
-        " \n"\
-        "########################################################\n";
+    "########################################################\n"\
+    " \n"\
+    " Server commands:\n"\
+    " \n"\
+    " /shut         - close program\n"\
+    " /list_players - list connected players\n"\
+    " /restart      - end current and start new game session (might block!)\n"\
+    " /help         - print this command list\n"\
+    " \n"\
+    "########################################################\n";
 
   printf("[%s] - Started\n", section);
   printf("%s", command_list);
@@ -106,7 +106,7 @@ void *input_handling()
       if(client_max_id >= 0)
       {
         printf("########################################################\n"\
-        " Currently connected players:\n");
+                " Currently connected players:\n");
         for(count = 0; count <= client_max_id; count++)
         {
           printf("  Player#%d [%s:%d]\n",

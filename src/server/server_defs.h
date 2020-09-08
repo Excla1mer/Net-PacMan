@@ -14,7 +14,7 @@
 #define MAX_PLAYERS 4
 
 /* Размер массива сетевых данных, пересылаемых между клиентом и сервером */
-#define NET_DATA_SIZE 3
+#define NET_DATA_SIZE 7
 
 /* Значения, используемые в различных попытках чего-либо достичь */
 #define MAX_ATTEMPTS 3

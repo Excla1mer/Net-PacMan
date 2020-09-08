@@ -102,6 +102,12 @@ int init_shut()
    }
  }
 
+ /* Поток сетевой синхронизации */
+ if (network_sync_tid > 0)
+ {
+   close_thread(network_sync_tid, "NET SYNC");
+ }
+
  /* Поток сетевой рассылки */
  if (network_dist_tid > 0)
  {

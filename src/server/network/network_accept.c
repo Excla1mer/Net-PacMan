@@ -114,6 +114,10 @@ void *network_accept()
       }
   }
 
-  /* ЗАГЛУШКА */
+  /* Если достигнут предел числинности игроков, поток выйдет сюда */
+  printf("[%s] - Reached maximum player capacity of (%d)\n", section,
+          MAX_PLAYERS);
+
+  /* Пока что, поток уйдёт спать. Стоит придумать что-то получше. */
   while (1) {sleep(10);}
 }

@@ -192,16 +192,16 @@ int main()
   ret = -1;
   while (1)
   {
-    if ((local_mq_desc = mq_open(LOCAL_MQ, O_RDWR | O_CREAT | O_NONBLOCK, 0655,
-      &queueAttr)) == -1)
+    if ((local_mq_desc = mq_open(LOCAL_MQ, O_RDWR | O_CREAT, 0655,
+                                  &queueAttr)) == -1)
       {
         perror("LOCAL MQ");
         break;
       }
     printf("[%s] - Local message queue created\n", section);
 
-    if ((net_mq_desc = mq_open(NET_MQ, O_RDWR | O_CREAT | O_NONBLOCK, 0655,
-      &queueAttr)) == -1)
+    if ((net_mq_desc = mq_open(NET_MQ, O_RDWR | O_CREAT, 0655,
+                                &queueAttr)) == -1)
       {
         perror("NET MQ");
         break;

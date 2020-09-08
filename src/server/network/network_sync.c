@@ -2,7 +2,7 @@
  * Поток сетевой синхронизации (ОТЛОЖЕН)
  *
  * Используется непосредственно во время игры, для запроса данных от клиентов и
- * рассылки этих же им всем.
+ * рассылки этих же данных им всем.
  *
  * Созданно: 03.09.20.
  * Автор: Денис Пащенко.
@@ -29,10 +29,6 @@
 /* Пауза, в секундах, перед стартом синхронизации, после запуска потока */
 #define INIT_SLEEP 5
 
-/* Сетевые константы. Будут перенесенны в основной файл после согласования */
-#define SYN_REQ 6
-#define SYN_REP 7
-
 void *network_sync()
 {
 /*##############################################################################
@@ -42,6 +38,7 @@ void *network_sync()
   const char *section = "NET SYNC";
 
   int count, count2;
+  int ret;
 
   /* Массив сетевых данных, передаваемый между клиентом и потоком */
   int net_data[NET_DATA_SIZE];
@@ -50,6 +47,7 @@ void *network_sync()
   int *data1 = &net_data[1];
   /*int *data2 = &net_data[2];*/
 
+  ret = -1;
   for (count = 0; count < NET_DATA_SIZE; count++)
   {
     net_data[count] = -1;
@@ -70,33 +68,54 @@ void *network_sync()
 
   while (1)
   {
-    printf("[%s] - Sync-ing clients\n", section);
+    printf("[%s] - Attempting to sync clients\n", section);
     /* Синхронизация каждого клиента по отдельности. */
     for (count = 0; count <= client_max_id; count++)
     {
       /* Отсылка запроса */
       *type = SYN_REQ;
-      send(net_client_desc[count], net_data, sizeof(net_data), TCP_NODELAY);
-
-      /* Получение ответа - запрошенных данных */
-      if (recv(net_client_desc[count], net_data, sizeof(net_data), 0) > 0)
+      ret = send(net_client_desc[count], net_data, sizeof(net_data),
+                  TCP_NODELAY);
+      for (count2 = 0; count2 < NET_DATA_SIZE; count2++)
       {
-        if (*type == SYN_REP)
+        net_data[count2] = -1;
+      }
+
+      /*
+       * Получение ответа - запрошенных данных. Их получил поток сетевого
+       * контроля (network_control).
+       */
+      if(ret > 0)
+      {
+        if (mq_receive(local_mq_desc, (char *)&net_data, mq_msg_size,
+                        NULL) > 0)
         {
-          *data1 = count;
-          /* Отправка данных текущего клиента всем клиентам вообще*/
-          for (count2 = 0; count2 <= client_max_id; count2++)
+          if (*type == SYN_REP)
           {
-            /* Отправка по TCP (по TCP ли? возможно, клиенту будет накладно)*/
-            if (send(net_client_desc[count2], net_data, sizeof(net_data),
-                    TCP_NODELAY) <= 0)
+            /* Отправка данных текущего клиента всем клиентам вообще*/
+            for (count2 = 0; count2 <= client_max_id; count2++)
             {
-              printf("[%s] - Sync data for client#%d was not send! "\
-              "Proceeding anyway...\n", section, count);
+              /* Отправка по UDP*/
+              if (send(udp_cl_sock_desc[count2], net_data, sizeof(net_data),
+                        0) <= 0)
+              {
+                printf("[%s] - Sync data for client#%d was not send! "\
+                        "Proceeding anyway...\n", section, count2);
+              }
             }
+          }
+          for (count = 0; count < NET_DATA_SIZE; count++)
+          {
+            net_data[count] = -1;
           }
         }
       }
+      else
+      {
+        printf("[%s] - Unable to send sync request to client#%d! "\
+                "Proceeding anyway...\n", section, count);
+      }
+      ret = -1;
     }
     printf("[%s] - Sync finished\n", section);
     sleep(SYNC_FREQ);

@@ -37,6 +37,7 @@ void *network_control()
 
   int count;
   int ret;
+  int player_id;
   /* Массив сетевых данных, передаваемый между клиентом и потоком */
   int net_data[NET_DATA_SIZE];
   /* Указатели на различные данные в массиве. (для удобства обращения) */
@@ -57,6 +58,7 @@ void *network_control()
   }
   count = 0;
   ret = 0;
+  player_id = -1;
 
   printf("[%s] - Started\n", section);
 
@@ -163,20 +165,34 @@ void *network_control()
         for (count = 0; count <= client_max_id; count++)
         {
           send(net_client_desc[count], net_data, sizeof(net_data),
-          TCP_NODELAY);
+                TCP_NODELAY);
         }
 
         /*
-        * Запуск потока сетевой рассылки.
-        *
-        * Провал здесь приводит к перезапуску цикла игры.
-        */
+         * Запуск потока сетевой рассылки.
+         *
+         * Провал здесь приводит к перезапуску цикла игры.
+         */
         if (launch_thread(&network_dist_tid, network_dist, "NET DIST") != 0)
         {
           printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
-          "[%s] - Failed on crucial part here.\n"\
-          "        Server will now close current game sesssion "\
-          "and start new one.\n", section);
+                "[%s] - Failed on crucial part here.\n"\
+                "        Server will now close current game sesssion "\
+                "and start new one.\n", section);
+          break;
+        }
+
+        /*
+         * Запуск потока сетевой синхронизации.
+         *
+         * Провал здесь приводит к перезапуску цикла игры.
+         */
+        if (launch_thread(&network_sync_tid, network_sync, "NET SYNC") != 0)
+        {
+          printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
+                  "[%s] - Failed on crucial part here.\n"\
+                  "        Server will now close current game sesssion "\
+                  "and start new one.\n", section);
           break;
         }
       }
@@ -223,19 +239,34 @@ void *network_control()
               {
                 /* Отправка остальным клиентам сообщения о конце игры. */
                 *type = ENDGAME; /* Конец игры*/
-                *data1 = net_data[1]; /* Номер клиента */
+                *data1 = count; /* Номер клиента */
+                player_id = count;
                 for(count = 0; count <= client_max_id; count++)
                 {
                   if ((send(net_client_desc[count], net_data,
-                    sizeof(net_data), TCP_NODELAY)) == -1)
-                    {
-                      perror("TCP SEND ENDGAME");
-                    }
+                            sizeof(net_data), TCP_NODELAY)) == -1)
+                  {
+                    perror("TCP SEND ENDGAME");
                   }
-                  /* За ret следит цикл while. */
-                  ret = 1;
-                  /* break оборвёт лишь for */
-                  break;
+                }
+                /* За ret следит цикл while. */
+                ret = 1;
+                /* break оборвёт лишь for */
+                break;
+              }
+                /*
+                 * Если это не конец игры, вероятно, это ответ от клиента на
+                 * запрос о синхронизации от клиента.
+                 */
+                else if(*type == SYN_REP)
+                {
+                  *data1 = count; /* Номер клиента */
+                  if (mq_send(local_mq_desc, (char *)&net_data,
+                              sizeof(net_data), 0) != 0)
+                  {
+                    printf("[%s] - MQ unavailable. Player data dropped.\n",
+                            section);
+                  }
                 }
                 for (count = 0; count < NET_DATA_SIZE; count++)
                 {
@@ -258,14 +289,14 @@ void *network_control()
      * После шага с прослушкой сетевых дескрипторов, поток знает, кто именно
      * окончил игру. Сообщение об этом отправляется в вывод.
      */
-    if(restart_flag == 0)
+    if(restart_flag == 0 && player_id >= 0)
     {
       printf("-------------------------------------------------------\n"\
               "[%s] - Endgame reached\n", section);
       printf("[%s] - Player#%d [%s:%d] ends the game\n", section,
-              count,
-              inet_ntoa(net_client_addr[count].sin_addr),
-              ntohs(net_client_addr[count].sin_port));
+              player_id,
+              inet_ntoa(net_client_addr[player_id].sin_addr),
+              ntohs(net_client_addr[player_id].sin_port));
     }
     else
     {
@@ -274,6 +305,13 @@ void *network_control()
     }
 
     /* Закрываются ненужные теперь потоки и сокеты. */
+    /* Поток сетевой синхронизации */
+    if(network_sync_tid != 0)
+    {
+      close_thread(network_sync_tid, "NET SYNC");
+      network_sync_tid = 0;
+    }
+
     /* Поток сетевой рассылки */
     if(network_dist_tid != 0)
     {
@@ -311,6 +349,7 @@ void *network_control()
     client_max_id = -1;
     ret = 0;
     restart_flag = 0;
+    player_id = -1;
 
     /* Сетевые poll-дескрипторы клиентов */
     memset(poll_descs, 0, sizeof(poll_descs));
