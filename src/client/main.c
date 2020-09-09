@@ -85,6 +85,7 @@ int main()
     perror("[MAIN_ERROR] Connect");
     exit(1);
   }
+
   printf("[MAIN] - Successful connect\n");
   printf("[MAIN] - Wait data from server...\n");
 
@@ -118,6 +119,11 @@ int main()
   printf("[MAIN] - Wait players...\n");
   sem_wait(&sem);
   server.sin_port = htons(udp_server_port);
+  if(connect(udp_sockfd, (struct sockaddr*)&server, sizeof(server)) == -1)
+  {
+    perror("[MAIN_ERROR] Connect");
+    exit(1);
+  }
 /*##############################################################################
  * Подготовка к началу игрового цикла
  *##############################################################################
@@ -190,8 +196,7 @@ int main()
     {
       players[my_id].last_dir = 1;
       set_netdata(net_data, -1, -1, 1, -1 , -1, -1, -1);
-      sendto(udp_sockfd, net_data, data_size, 0, (struct sockaddr*)&server,
-          sizeof(server));
+      send(udp_sockfd, net_data, data_size, 0);
       printf("[GAME] - Send left key\n");
 
     }
@@ -199,24 +204,21 @@ int main()
     {
       players[my_id].last_dir = 0;
       set_netdata(net_data, -1, -1, 0, -1 , -1, -1, -1);
-      sendto(udp_sockfd, net_data, data_size, 0, (struct sockaddr*)&server,
-          sizeof(server));
+      send(udp_sockfd, net_data, data_size, 0);
       printf("[GAME] - Send right key\n");
     }
     if(sfKeyboard_isKeyPressed(sfKeyUp) && players[my_id].last_dir != 3)
     {
       players[my_id].last_dir = 3;
       set_netdata(net_data, -1, -1, 3, -1 , -1, -1, -1);
-      sendto(udp_sockfd, net_data, data_size, 0, (struct sockaddr*)&server,
-          sizeof(server));
+      send(udp_sockfd, net_data, data_size, 0);
       printf("[GAME] - Send up key\n");
     }
     if(sfKeyboard_isKeyPressed(sfKeyDown) && players[my_id].last_dir != 2)
     {
       players[my_id].last_dir = 2;
       set_netdata(net_data, -1, -1, 2, -1 , -1, -1, -1);
-      sendto(udp_sockfd, net_data, data_size, 0, (struct sockaddr*)&server,
-          sizeof(server));
+      send(udp_sockfd, net_data, data_size, 0);
       printf("[GAME] - Send down key\n");
     }
     /* Обновление данных игрока */

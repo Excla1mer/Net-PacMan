@@ -91,6 +91,7 @@ void* client_check(void* args)
         }
         pthread_mutex_unlock(&mutex);
         break;
+      default: break;
     }
   }
   printf("[NETWORK] - Close\n");
@@ -106,16 +107,9 @@ void* net_check(void* args)
   int data_size = sizeof(net_data);
   struct player* players = (struct player*)args;
 
-  struct sockaddr_in server;
-  server.sin_family = AF_INET;
-  server.sin_addr.s_addr = inet_addr(SERVER_ADDR);
-  server.sin_port = htons(udp_server_port);
-  socklen_t len = sizeof(server);
-
   while(1)
   {
-    if(recvfrom(udp_sockfd, net_data, data_size, 0,
-          (struct sockaddr*)&server, &len) == -1)
+    if(recv(udp_sockfd, net_data, data_size, 0) == -1)
     {
       perror("[NETWORK ERROR] - Recv direction");
       exit(-1);
