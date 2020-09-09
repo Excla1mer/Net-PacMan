@@ -112,7 +112,6 @@ void* net_check(void* args)
     if(recv(udp_sockfd, net_data, data_size, 0) == -1)
     {
       perror("[NETWORK ERROR] - Recv direction");
-      exit(-1);
     }
     switch(net_data[0])
     {
