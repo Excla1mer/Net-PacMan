@@ -36,8 +36,8 @@ void *network_control()
   const char *section = "NET CTRL";
 
   int count;
-  int ret;
-  int player_id;
+  short ret;
+  short player_id;
   /* Массив сетевых данных, передаваемый между клиентом и потоком */
   int net_data[NET_DATA_SIZE];
   /* Указатели на различные данные в массиве. (для удобства обращения) */
@@ -60,10 +60,6 @@ void *network_control()
   ret = 0;
   player_id = -1;
 
-  /* Небольшая задержка.
-   * Позволяет другим потокам вывести всю информацию на экран
-   */
-  sleep(1);
   /*printf("[%s] - Started\n", section);*/
 
 /*##############################################################################
@@ -162,7 +158,10 @@ void *network_control()
         pthread_cancel(network_accept_tid);
         pthread_join(network_accept_tid, NULL);
         network_accept_tid = 0;
-        /*printf("[%s] - (NET ACCEPT) thread canceled and joined\n", section);*/
+        if(verbose_flag != 0)
+        {
+          printf("[%s] - (NET ACCEPT) thread canceled and joined\n", section);
+        }
 
         /*
         * Небольшая пауза даёт возможность потокам клиентов отослать своим
@@ -379,7 +378,7 @@ void *network_control()
     memset(poll_descs, 0, sizeof(poll_descs));
 
     /* Сброс порта. Теперь перебор порта новых сокетов вновь начнётся сначала */
-    server_addr_struct.sin_port = htons(SERVER_PORT);
+    server_addr_struct.sin_port = htons(SERVER_TCP_PORT);
 
     /*
     * Очистка очередей сообщений.

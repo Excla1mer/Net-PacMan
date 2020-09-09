@@ -23,6 +23,7 @@
 
 #include "server_defs.h"
 #include "server_protos.h"
+#include "../net_data_defs.h"
 
 /*##############################################################################
  * Глобальные переменные
@@ -46,7 +47,7 @@ int main()
   const char *section = "MAIN";
 
   int count;
-  int ret;
+  short ret;
 
   /* Структура атрибутов очередей */
   struct mq_attr queueAttr;
@@ -58,8 +59,8 @@ int main()
   /* Установка параметров структуры адреса */
   server_addr_struct.sin_family = AF_INET;
   server_addr_struct.sin_addr.s_addr = htonl(INADDR_ANY);
-  /* SERVER_PORT определён в defs.h */
-  server_addr_struct.sin_port = htons(SERVER_PORT);
+  /* SERVER_TCP_PORT определён в net_data_defs.h */
+  server_addr_struct.sin_port = htons(SERVER_TCP_PORT);
 
   /*Настройка атрибутов очереди*/
   mq_msg_size = sizeof(int)*NET_DATA_SIZE;
@@ -91,6 +92,7 @@ int main()
   client_max_id = -1;
 
   ready_count = 0;
+  verbose_flag = 0;
 
   printf("[%s] - Started\n", section);
 

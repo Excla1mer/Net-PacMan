@@ -76,7 +76,8 @@ void *network_accept()
          * Теперь максимальный ID можно повысить на единицу.
          */
         client_max_id++;
-        printf("[%s] - (TCP) Client [%s:%d] connected\n", section,
+        printf("[%s] - (TCP) Player#%d [%s:%d] connected\n", section,
+                client_max_id,
                 inet_ntoa(net_client_addr[client_max_id].sin_addr),
                 ntohs(net_client_addr[client_max_id].sin_port));
 
@@ -105,8 +106,11 @@ void *network_accept()
             perror("TCP SEND NEW CONNECT");
           }
         }
-        /*printf("[%s] - Notified clients about newly connected client\n",
-                section);*/
+        if(verbose_flag != 0)
+        {
+          printf("[%s] - Notified clients about newly connected client\n",
+                  section);
+        }
         for (count = 0; count < NET_DATA_SIZE; count++)
         {
           net_data[count] = -1;

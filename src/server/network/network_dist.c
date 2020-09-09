@@ -21,6 +21,7 @@
 #include <arpa/inet.h>
 
 #include "../server_defs.h"
+#include "../../net_data_defs.h"
 
 void *network_dist()
 {
@@ -60,11 +61,16 @@ void *network_dist()
         /*
          * Отправка в личный UDP сокет клиента - уточнение адреса не требуется.
          */
-        send(udp_cl_sock_desc[count], net_data, sizeof(net_data), 0);
-        /*perror("SEND");*/
+        if(send(udp_cl_sock_desc[count], net_data, sizeof(net_data), 0) < 0)
+        {
+          perror("DIST SEND");
+        }
       }
-      printf("[%s] - Resended data to clients (%d/%d/%d)\n", section,
-              net_data[0], net_data[1], net_data[2]);
+      if(verbose_flag > 1)
+      {
+        printf("[%s] - Resended data to clients (%d/%d/%d)\n", section,
+                net_data[0], net_data[1], net_data[2]);
+      }
       for (count = 0; count < NET_DATA_SIZE; count++)
       {
         net_data[count] = -1;

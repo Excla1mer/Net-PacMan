@@ -22,6 +22,7 @@
 
 #include "server_defs.h"
 #include "server_protos.h"
+#include "../net_data_defs.h"
 
 void *input_handling()
 {
@@ -42,6 +43,8 @@ void *input_handling()
     " \n"\
     " /shut         - close program\n"\
     " /list_players - list connected players\n"\
+    " /verbose+     - Output MORE info (3 levels)\n"\
+    " /verbose-     - Output LESS info (3 levels)\n"\
     " /restart      - end current and start new game session (might block!)\n"\
     " /help         - print this command list\n"\
     " \n"\
@@ -85,15 +88,20 @@ void *input_handling()
        */
       if (pthread_mutex_destroy(&input_handling_lock) == 0)
       {
-        printf("[%s] - Input handling mutex destroyed\n", section);
+        if(verbose_flag != 0)
+        {
+          printf("[%s] - Input handling mutex destroyed\n", section);
+        }
       }
       else
       {
         printf("[%s] - Unable to destroy input handling mutex."\
                "Proceeding anyway...\n", section);
       }
-
-      printf("[%s] - Exiting thread...\n", section);
+      if(verbose_flag != 0)
+      {
+        printf("[%s] - Exiting thread...\n", section);
+      }
       /* Вернуть 0. Теперь контроль перейдёт в "main"*/
       pthread_exit((void *)0);
     }
@@ -130,6 +138,33 @@ void *input_handling()
     else if(strcmp(input, "/restart\n") == 0)
     {
       restart_flag = 1;
+    }
+
+    /* /verbose+ - печатать БОЛЬШЕ информации в вывод */
+    else if(strcmp(input, "/verbose+\n") == 0)
+    {
+      if(verbose_flag < 2)
+      {
+        verbose_flag++;
+        printf("\n Verbose at level (%d) of (3)\n\n", verbose_flag+1);
+      }
+      else
+      {
+        printf("\n Already at maximum!\n\n");
+      }
+    }
+    /* /verbose- - печатать МЕНЬШЕ информации в вывод */
+    else if(strcmp(input, "/verbose-\n") == 0)
+    {
+      if(verbose_flag > 0)
+      {
+        verbose_flag--;
+        printf("\n Verbose at level (%d) of (3)\n\n", verbose_flag+1);
+      }
+      else
+      {
+        printf("\n Already at minimum!\n\n");
+      }
     }
 
     /* Ответ по-умолчанию - команда не найдена */

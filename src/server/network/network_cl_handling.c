@@ -39,7 +39,7 @@ void *network_cl_handling()
   /* Реальное имя секции. Будет собрано, после получения ID клиента. */
   char section[9];
 
-  int client_id;
+  short client_id;
   int count;
 
   /* Массив сетевых данных, передаваемый между клиентом и потоком */
@@ -71,9 +71,12 @@ void *network_cl_handling()
       /* Из префикса и ID собирается имя секции */
       sprintf(section, "%s#%d", section_prefix, client_id);
 
-      printf("[%s] - Hadling Player#%d [%s:%d]\n", section, client_id,
-              inet_ntoa(net_client_addr[client_id].sin_addr),
-              ntohs(net_client_addr[client_id].sin_port));
+      if(verbose_flag != 0)
+      {
+        printf("[%s] - Hadling Player#%d [%s:%d]\n", section, client_id,
+        inet_ntoa(net_client_addr[client_id].sin_addr),
+        ntohs(net_client_addr[client_id].sin_port));
+      }
       break;
     }
   }
@@ -94,9 +97,9 @@ void *network_cl_handling()
     perror("UDP SOCKET");
     /* Будет лучше добавить какую-то обработку здесь и подобных местах далее */
   }
-  else
+  else if(verbose_flag != 0)
   {
-    printf("[%s] - (UDP) Socket created\n", section);
+      printf("[%s] - (UDP) Socket created\n", section);
   }
 
   /*
@@ -119,7 +122,7 @@ void *network_cl_handling()
       printf("[%s] - (UDP) Exeeded (uint) range while serching for port! "\
               "Retrying from beginig...\n",
               section);
-      new_port = SERVER_PORT + 1;
+      new_port = SERVER_TCP_PORT + 1;
     }
 
     server_addr_struct.sin_port = htons(new_port);
@@ -129,7 +132,10 @@ void *network_cl_handling()
         sizeof(server_addr_struct)) == 0)
     {
       pthread_mutex_unlock(&new_port_lock);
-      printf("[%s] - (UDP) Socket binded on port [%d]\n", section, new_port);
+      if(verbose_flag != 0)
+      {
+        printf("[%s] - (UDP) Socket binded on port [%d]\n", section, new_port);
+      }
       break;
     }
     pthread_mutex_unlock(&new_port_lock);
@@ -148,9 +154,9 @@ void *network_cl_handling()
   }
   else
   {
-    printf("[%s] - Notified client about it's "\
-            "ID and UDP connection port [%d]\n",
-            section, new_port);
+    printf("[%s] - Notified client about its "\
+            "ID and UDP connection port [%d:%d]\n",
+            section, client_id, new_port);
   }
   for (count = 0; count < NET_DATA_SIZE; count++)
   {
@@ -164,7 +170,7 @@ void *network_cl_handling()
   {
     perror("UDP CONNECT");
   }
-  else
+  else if(verbose_flag != 0)
   {
     printf("[%s] - (UDP) Socket connected\n", section);
   }
@@ -178,20 +184,26 @@ void *network_cl_handling()
   /*
    * TCP - ожидание от клиента сообщения о готовности начать (START)
    */
-  printf("[%s] - Waiting for client to get ready\n", section);
+   if(verbose_flag != 0)
+   {
+     printf("[%s] - Waiting for client to get ready\n", section);
+   }
   while(1)
   {
     if(recv(net_client_desc[client_id], net_data, sizeof(net_data),
             0) > 0)
     {
-      /*printf("[%s] - (TCP) Message from [%s:%d]: %d/%d/%d\n", section,
-              inet_ntoa(net_client_addr[client_id].sin_addr),
-              ntohs(net_client_addr[client_max_id].sin_port),
-              net_data[0], net_data[1], net_data[2]);*/
+      if(verbose_flag > 1)
+      {
+        printf("[%s] - (TCP) Message from [%s:%d]: %d/%d/%d\n", section,
+                inet_ntoa(net_client_addr[client_id].sin_addr),
+                ntohs(net_client_addr[client_max_id].sin_port),
+                net_data[0], net_data[1], net_data[2]);
+      }
 
       if(*type == READY)
       {
-        printf("[%s] - Client ready to start\n", section);
+        printf("[%s] - Player#%d ready to start\n", section, client_id);
         /*
          * Аккуратно, через мьютекс, повышается число готовых начать клиентов
          * на единицу. За этим числом следит поток сетевого контроля
@@ -236,7 +248,10 @@ void *network_cl_handling()
  */
 
   /* Можно начать слушать собственный сокет. */
-  printf("[%s] - Listening client via UDP\n", section);
+  if(verbose_flag != 0)
+  {
+    printf("[%s] - Listening client via UDP\n", section);
+  }
   while(1)
   {
     /*
@@ -245,11 +260,6 @@ void *network_cl_handling()
      */
     if(recv(udp_cl_sock_desc[client_id], net_data, sizeof(net_data), 0) > 0)
     {
-      /*printf("[%s] - (UDP) Message from [%s:%d]: %d/%d/%d\n", section,
-              inet_ntoa(net_client_addr[client_id].sin_addr),
-              ntohs(net_client_addr[client_max_id].sin_port),
-              net_data[0], net_data[1], net_data[2]);*/
-
       /* Клиент мог и не обозначить все эти данные. Сервер уточняет их. */
       *type = CL_DIR;
       *data1 = client_id;

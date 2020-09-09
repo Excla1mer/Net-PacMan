@@ -24,11 +24,6 @@
 #include "../server_defs.h"
 #include "../../net_data_defs.h"
 
-/* Частота, в секундах, повтора синхронизации */
-#define SYNC_FREQ 3
-/* Пауза, в секундах, перед стартом синхронизации, после запуска потока */
-#define INIT_SLEEP 5
-
 void *network_sync()
 {
 /*##############################################################################
@@ -38,7 +33,7 @@ void *network_sync()
   const char *section = "NET SYNC";
 
   int count, count2;
-  int ret;
+  short ret;
 
   /* Массив сетевых данных, передаваемый между клиентом и потоком */
   int net_data[NET_DATA_SIZE];
@@ -59,7 +54,7 @@ void *network_sync()
    * Прямо на старте запускать синхронизацию необходимости нет, поэтому поток
    * спит какое-то время.
    */
-  sleep(INIT_SLEEP);
+  sleep(SYNC_DELAY);
 
 /*##############################################################################
  * Получение и пересылка данных клиентов
@@ -68,7 +63,10 @@ void *network_sync()
 
   while (1)
   {
-    printf("[%s] - Attempting to sync clients\n", section);
+    if(verbose_flag != 0)
+    {
+      printf("[%s] - Attempting to sync clients\n", section);
+    }
     /* Синхронизация каждого клиента по отдельности. */
     for (count = 0; count <= client_max_id; count++)
     {
@@ -102,6 +100,18 @@ void *network_sync()
                 printf("[%s] - Sync data for client#%d was not send! "\
                         "Proceeding anyway...\n", section, count2);
               }
+              else if(verbose_flag > 0)
+              {
+                printf("[%s] - Sync-ed Player#%d data with other players "\
+                        "(%d/%d/%d/%d/%d/%d/%d)\n", section, count,
+                        net_data[0],
+                        net_data[1],
+                        net_data[2],
+                        net_data[3],
+                        net_data[4],
+                        net_data[5],
+                        net_data[6]);
+              }
             }
           }
           for (count2 = 0; count2 < NET_DATA_SIZE; count2++)
@@ -117,7 +127,10 @@ void *network_sync()
       }
       ret = -1;
     }
-    printf("[%s] - Sync finished\n", section);
+    if(verbose_flag != 0)
+    {
+      printf("[%s] - Sync finished\n", section);
+    }
     sleep(SYNC_FREQ);
   }
 }

@@ -21,6 +21,7 @@
 
 #include "server_defs.h"
 #include "server_protos.h"
+#include "../net_data_defs.h"
 
 /*##############################################################################
  * Запуск потока
@@ -38,11 +39,12 @@ int launch_thread(pthread_t *tid, void *(*thread)(void *), const char *thread_na
    {
      if (count < MAX_ATTEMPTS)
      {
-       /*
-       printf("[%s] - Failed to create (%s) thread."\
-               "Retrying again in %d seconds...\n",
-               section, thread_name, SLEEP_TIME);
-        */
+       if(verbose_flag > 1)
+       {
+         printf("[%s] - Failed to create (%s) thread."\
+                "Retrying again in %d seconds...\n",
+                section, thread_name, SLEEP_TIME);
+       }
        sleep(SLEEP_TIME);
        count++;
      }
@@ -54,11 +56,11 @@ int launch_thread(pthread_t *tid, void *(*thread)(void *), const char *thread_na
        return -1;
      }
    }
-   /*
-    * Все потоки сами сообщают о своём запуске, но на всякий случай, функция
-    * тоже отчитывается.
-    */
-   printf("[%s] - Thread (%s) launched\n", section, thread_name);
+
+   if(verbose_flag != 0)
+   {
+     printf("[%s] - Thread (%s) launched\n", section, thread_name);
+   }
    return 0;
 }
 
@@ -72,7 +74,7 @@ int close_thread(pthread_t tid, const char *thread_name)
   const char *section = "CLOSE THREAD";
 
   int count;
-  int ret;
+  short ret;
 
   ret = 0;
 
@@ -83,11 +85,12 @@ int close_thread(pthread_t tid, const char *thread_name)
      perror("CANCEL");
      if (count < MAX_ATTEMPTS)
      {
-       /*
-       printf("[%s] - Failed to cancel (%s) thread. "\
-               "Retrying again in %d seconds...\n",
-               section, thread_name, SLEEP_TIME);
-      */
+       if(verbose_flag > 1)
+       {
+         printf("[%s] - Failed to cancel (%s) thread. "\
+                "Retrying again in %d seconds...\n",
+                section, thread_name, SLEEP_TIME);
+       }
        sleep(SLEEP_TIME);
        count++;
      }
@@ -109,11 +112,12 @@ int close_thread(pthread_t tid, const char *thread_name)
      perror("THREAD JOIN");
       if (count < MAX_ATTEMPTS)
       {
-        /*
-        printf("[%s] - Failed to join (%s) thread. "\
-                "Retrying again in %d seconds...\n",
-                section, thread_name, SLEEP_TIME);
-        */
+        if(verbose_flag > 1)
+        {
+          printf("[%s] - Failed to join (%s) thread. "\
+                  "Retrying again in %d seconds...\n",
+                  section, thread_name, SLEEP_TIME);
+        }
         sleep(SLEEP_TIME);
         count++;
       }
@@ -127,9 +131,12 @@ int close_thread(pthread_t tid, const char *thread_name)
       }
     }
 
-    if (ret >= 0)
+    if(verbose_flag != 0)
     {
-      printf("[%s] - Thread (%s) closed\n", section, thread_name);
+      if (ret >= 0)
+      {
+        printf("[%s] - Thread (%s) closed\n", section, thread_name);
+      }
     }
     return ret;
 }
@@ -144,7 +151,7 @@ int close_sock(int sock, const char *sock_name)
   const char *section = "CLOSE SOCK";
 
   int count;
-  int ret;
+  short ret;
 
    /* Закрытие сокета */
    count = 0;
@@ -153,9 +160,13 @@ int close_sock(int sock, const char *sock_name)
      count++;
      sleep(SLEEP_TIME);
    }
+
    if (ret >= 0)
    {
-     printf("[%s] - (%s) socket closed\n", section, sock_name);
+     if(verbose_flag != 0)
+     {
+       printf("[%s] - (%s) socket closed\n", section, sock_name);
+     }
    }
    else
    {
@@ -208,9 +219,12 @@ int clear_mq(mqd_t mq_desc, const char *mq_name)
    }
   }
 
-  if(count != 0)
+  if(verbose_flag != 0)
   {
-    printf("[%s] - Flushed (%d) messages from (%s)\n", section, count, mq_name);
+    if(count != 0)
+    {
+      printf("[%s] - Flushed (%d) messages from (%s)\n", section, count, mq_name);
+    }
   }
   return 0;
 }

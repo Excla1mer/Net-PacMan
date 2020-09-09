@@ -24,20 +24,24 @@
 
 #include "server_defs.h"
 #include "server_protos.h"
+#include "../net_data_defs.h"
 
 int init_shut()
 {
   const char *section = "INIT SHUT";
 
   int count;
-  int result;
+  short result;
 
   /* Используется для передачи клиентских данных */
   char name[9];
 
   memset(name, 0, sizeof(name));
 
-  /*printf("[%s] - Called\n", section);*/
+  if(verbose_flag != 0)
+  {
+    printf("[%s] - Called\n", section);
+  }
 
 /*##############################################################################
  * Остановка потоков
@@ -76,7 +80,10 @@ int init_shut()
       */
       if (pthread_mutex_destroy(&input_handling_lock) == 0)
       {
-        printf("[%s] - Input handling mutex destroyed\n", section);
+        if(verbose_flag != 0)
+        {
+          printf("[%s] - Input handling mutex destroyed\n", section);
+        }
       }
       else
       {
@@ -126,7 +133,10 @@ int init_shut()
    /* Мьютекс счётчика готовности */
    if (pthread_mutex_destroy(&ready_count_lock) == 0)
    {
-     printf("[%s] - Ready count mutex destroyed\n", section);
+     if(verbose_flag != 0)
+     {
+       printf("[%s] - Ready count mutex destroyed\n", section);
+     }
    }
    else
    {
@@ -136,7 +146,10 @@ int init_shut()
    /* Мьютекс подбора нового порта */
    if (pthread_mutex_destroy(&new_port_lock) == 0)
    {
-     printf("[%s] - New port searching mutex destroyed\n", section);
+     if(verbose_flag != 0)
+     {
+       printf("[%s] - New port searching mutex destroyed\n", section);
+     }
    }
    else
    {
@@ -180,7 +193,10 @@ int init_shut()
     }
     if (result >= 0)
     {
-      printf("[%s] - Local message queue closed\n", section);
+      if(verbose_flag != 0)
+      {
+        printf("[%s] - Local message queue closed\n", section);
+      }
     }
     else
     {
@@ -196,7 +212,10 @@ int init_shut()
     }
     if (result >= 0)
     {
-      printf("[%s] - Local message queue unlinked\n", section);
+      if(verbose_flag != 0)
+      {
+        printf("[%s] - Local message queue unlinked\n", section);
+      }
     }
     else
     {
@@ -217,7 +236,10 @@ int init_shut()
     }
     if (result >= 0)
     {
-      printf("[%s] - Network message queue closed\n", section);
+      if(verbose_flag != 0)
+      {
+        printf("[%s] - Network message queue closed\n", section);
+      }
     }
     else
     {
@@ -233,7 +255,10 @@ int init_shut()
     }
     if (result >= 0)
     {
-      printf("[%s] - Network message queue unlinked\n", section);
+      if(verbose_flag != 0)
+      {
+        printf("[%s] - Network message queue unlinked\n", section);
+      }
     }
     else
     {
