@@ -18,6 +18,9 @@
 #include "globals.h"
 #include "network.h"
 
+void draw_board(sfRenderWindow* window, sfSprite* board_sprite, 
+    sfText* text, struct player* players);
+
 int main()
 {
 /*##############################################################################
@@ -41,6 +44,7 @@ int main()
   cliaddr.sin_family = AF_INET;
   cliaddr.sin_addr.s_addr = INADDR_ANY;
   cliaddr.sin_port = htons(port);
+
   if(pthread_mutex_init(&mutex, NULL))
   {
     perror("[MAIN_ERROR] - Init mutex");
@@ -126,8 +130,8 @@ int main()
   draw_thread = malloc(sizeof(max_players) * sizeof(pthread_t));
 
   /* Создание слушающего потока для принятия данных */
-  pthread_t listen_thread;
-  pthread_create(&listen_thread, NULL, net_check, (void*)players);
+  pthread_t listen_thread_tid;
+  pthread_create(&listen_thread_tid, NULL, net_check, (void*)players);
 
   /* Настройка размера окна */
   sfVideoMode mode = {1150, 950, 32};
@@ -139,13 +143,19 @@ int main()
   sfImage* map_image = sfImage_createFromFile("textures/Walls.png");
   sfTexture* map_texture = sfTexture_createFromImage(map_image, NULL);
   sfSprite_setTexture(map_sprite, map_texture, sfTrue);
-
+  
   /* Инициализация и создание текстовых данных */
   sfText* score_text = sfText_create();
   sfText_setColor(score_text, sfWhite);
   sfText_setCharacterSize(score_text, 67);
   sfFont* font = sfFont_createFromFile("textures/Font.otf");
   sfText_setFont(score_text, font);
+
+  /* Инициализация рамки */
+  sfSprite* board_sprite = sfSprite_create();
+  sfImage* board_image = sfImage_createFromFile("textures/boards/boardRed.png");
+  sfTexture* board_texture = sfTexture_createFromImage(board_image, NULL);
+  sfSprite_setTexture(board_sprite, board_texture, sfTrue);
 
   /* Создание окна */
   window = sfRenderWindow_create(mode, "PAC-MAN", sfResize | sfClose, NULL);
@@ -211,32 +221,6 @@ int main()
           sizeof(server));
       printf("[GAME] - Send down key\n");
     }
-    /* Определение победителя после сбора всех очков */
-    if(dots >= MAX_DOTS)
-    {
-      int loose = 0;
-      for(int i = 0; i < max_players; ++i)
-      {
-        if(players[my_id].score < players[i].score)
-        {
-          printf("You loose\n");
-          loose = 1;
-          pthread_join(client_check_tid, NULL);
-          break;
-        }
-      }
-      if(loose)
-        break;
-      set_netdata(net_data, ENDGAME, my_id, -1, -1, -1, -1, -1);
-      if(send(tcp_sockfd, net_data, sizeof(net_data), 0) == -1)
-      {
-        perror("END message");
-        exit(-1);
-      }
-      printf("You win!\n");
-      pthread_join(client_check_tid, NULL);
-      break;
-    }
     /* Обновление данных игрока */
     pthread_mutex_lock(&mutex);
     for(int i = 0; i < max_players; ++i)
@@ -255,8 +239,23 @@ int main()
 
     /* Очистка окна*/
     sfRenderWindow_clear(window, sfBlack);
+
     /* Отрисовка карты */
     draw_map(window, map_sprite);
+
+    /* Определение победителя после сбора всех очков */
+    if(dots >= MAX_DOTS)
+    {
+      set_netdata(net_data, ENDGAME, my_id, -1, -1, -1, -1, -1);
+      if(send(tcp_sockfd, net_data, sizeof(net_data), 0) == -1)
+      {
+        perror("[MAIN] Send END message");
+        exit(-1);
+      }
+      draw_board(window, board_sprite, score_text, players);
+
+      break;
+    }
 
     /* Отрисовка правого меню других игроков */
     /* TODO: засунуть в поток update!!! */
@@ -288,15 +287,48 @@ int main()
  * Освобождение ресурсов
  *##############################################################################
  */
-  for(int i = 0; i < max_players; ++i)
-  {
-    pthread_cancel(draw_thread[i]);
-  }
+  pthread_cancel(listen_thread_tid);
   sfText_destroy(score_text);
   sfFont_destroy(font);
   sfRenderWindow_destroy(window);
   free(players);
+  free(draw_thread);
   close(tcp_sockfd);
   close(udp_sockfd);
   return 0;
+}
+
+int cmp(const void *a, const void *b)
+{
+  struct player* p1 =  (struct player*)a;
+  struct player* p2 =  (struct player*)b;
+  return p2->score - p1->score;
+}
+
+void draw_board(sfRenderWindow* window, sfSprite* board_sprite,
+    sfText* text, struct player* players)
+{
+  sfVector2f vec = {0, 0};
+  char* score = calloc(sizeof(int), 1);
+
+    /* Отрисовка рамки */
+  set_vec(&vec, 181, 270);
+  sfSprite_setPosition(board_sprite, vec);
+  sfRenderWindow_drawSprite(window, board_sprite, NULL);
+
+  sfText_setCharacterSize(text, 55);
+  set_text(text, "Game %s Over!", "is", 330, 290);
+  sfRenderWindow_drawText(window, text, NULL);
+
+  qsort(players, max_players, sizeof(struct player), cmp);
+  for(int i = 0; i < max_players; ++i)
+  {
+    sprintf(score, "%d", players[i].score);
+    set_text(text, "Score:  %s", score, 410, 365 + (i * 40));
+    set_icon(players[i].icon_sprite, 360, 395 + (i * 40));
+    sfRenderWindow_drawSprite(window, players[i].icon_sprite, NULL);
+    sfRenderWindow_drawText(window, text, NULL);
+  }
+  sfRenderWindow_display(window);
+  while(!sfKeyboard_isKeyPressed(sfKeyQ));
 }

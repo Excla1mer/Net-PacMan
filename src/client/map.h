@@ -6,7 +6,7 @@
 #define HEIGHT_MAP 31     // размер карты высота
 #define WIDTH_MAP 28      // размер карты ширина
 #define BLOCK 30          // размер блока
-#define MAX_DOTS 100     // количетсво очков на карте
+#define MAX_DOTS 200      // количетсво очков на карте
 
 void draw_map(sfRenderWindow* window, sfSprite* map_sprite);
 
