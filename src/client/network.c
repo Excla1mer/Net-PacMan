@@ -60,20 +60,11 @@ void* client_check(void* args)
       case ENDGAME:
         printf("[NETWORK INFO] - Recv ENDGAME message\n");
         end_game = 1;
+        printf("ENDGAME FROM THREAD: %d\n", end_game);
+        exit(-1);
         pthread_cancel(listen_thread_tid);
         return (void*)0;
       case SYN_REQ:
-        /*
-         * Описание того как происходит разбиение дробного числа на два целых:
-         * Допустим координата x = 111,222. Записываю в net_data[2] целую часть
-         * числа: net_data[2] = x; net_data[2] == 111;
-         * Для отделения дробной части числа использую переменную float tmp.
-         * Записываю в tmp дробную часть сисла: tmp = x - net_data[2];
-         * tmp = 0.222;
-         * Перевожу дробную часть числа в целую путем домножения ее на DIV
-         * (DIV = 10000) и записываю в net_data[3]: net_data[3] = tmp * DIV;
-         * net_data[3] = 2220;
-         */
         printf("[NETWORK INFO] - Got SYN_REQ\n"); 
         pthread_mutex_lock(&mutex);
         
@@ -122,13 +113,6 @@ void* net_check(void* args)
         pthread_mutex_unlock(&mutex);
         break;
       case SYN_REP:
-        /* Описание того как два целых числа собираются в одно дробное.
-         * Получаем данные net_data[2] = 111; net_data[3] = 2220;
-         * Записываем целую часть дроби в х: x = net_data[2]; x = 111;
-         * Переводим net_data[3] в тип float путем топорного умножения на 1,0
-         * Затем делим на тот-же DIV, что и использовался при первеводе в целые
-         * числа, и прибавляем к х: x += (2220 * 1.0) / DIV; x += 111,2220
-         */
         id = net_data[1];
         pthread_mutex_lock(&mutex);
         players[id].x = net_data[2];

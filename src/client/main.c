@@ -248,9 +248,9 @@ int main()
     /* Отрисовка карты */
     draw_map(window, map_sprite);
 
-    /* Определение победителя после сбора всех очков */
+    /* Проверка на конец игры */
     printf("dots: %d   endgame: %d\n", dots, end_game);
-    if((dots >= MAX_DOTS) || end_game)
+    if(dots >= MAX_DOTS || end_game)
     {
       set_netdata(net_data, ENDGAME, my_id, -1, -1, -1, -1, -1);
       if(!end_game)
@@ -260,7 +260,6 @@ int main()
           exit(-1);
         }
       draw_board(window, board_sprite, score_text, players);
-
       break;
     }
 
