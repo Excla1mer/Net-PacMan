@@ -58,6 +58,7 @@ void* client_check(void* args)
         udp_server_port = net_data[2];
         break;
       case ENDGAME:
+        end_game = 1;
         return (void*)0;
       case SYN_REQ:
         /*

@@ -28,6 +28,7 @@ int main()
  *##############################################################################
  */
   sem_init(&sem, 0, 0);
+  int end_game = 0;
   int port = 7777;
   char score[8];
   struct sockaddr_in server, cliaddr;
@@ -244,7 +245,7 @@ int main()
     draw_map(window, map_sprite);
 
     /* Определение победителя после сбора всех очков */
-    if(dots >= MAX_DOTS)
+    if((dots >= MAX_DOTS) || end_game)
     {
       set_netdata(net_data, ENDGAME, my_id, -1, -1, -1, -1, -1);
       if(send(tcp_sockfd, net_data, sizeof(net_data), 0) == -1)
