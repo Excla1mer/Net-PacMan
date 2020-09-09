@@ -129,7 +129,6 @@ int main()
   draw_thread = malloc(sizeof(max_players) * sizeof(pthread_t));
 
   /* Создание слушающего потока для принятия данных */
-  pthread_t listen_thread_tid;
   pthread_create(&listen_thread_tid, NULL, net_check, (void*)players);
 
   /* Настройка размера окна */
@@ -243,14 +242,15 @@ int main()
     draw_map(window, map_sprite);
 
     /* Определение победителя после сбора всех очков */
-    if((dots >= MAX_DOTS) || end_game)
+    if(dots >= MAX_DOTS)
     {
       set_netdata(net_data, ENDGAME, my_id, -1, -1, -1, -1, -1);
-      if(send(tcp_sockfd, net_data, sizeof(net_data), 0) == -1)
-      {
-        perror("[MAIN] Send END message");
-        exit(-1);
-      }
+      if(!endgame)
+        if(send(tcp_sockfd, net_data, sizeof(net_data), 0) == -1)
+        {
+          perror("[MAIN] Send END message");
+          exit(-1);
+        }
       draw_board(window, board_sprite, score_text, players);
 
       break;
