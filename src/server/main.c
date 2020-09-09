@@ -72,7 +72,8 @@ int main()
   /*
    * Зануление различных дескрипторов на старте. Если всё проходит без ошибок,
    * они всё равно будут переопределенны. Иначе, на значения будет смотреть
-   * функция "init_shut".
+   * функция "init_shut" и некоторые другие, которые будут работать с этими
+   * данными.
    */
   tcp_sock_desc = 0;
   for (count = 0; count < MAX_PLAYERS; count++)
@@ -101,19 +102,15 @@ int main()
  *##############################################################################
  */
 
-  /*
-   * Однотипных запусков стало так много, что они были вынесены в отдельную
-   * функцию "launch_thread"
-   */
   if (launch_thread(&input_handling_tid, input_handling, "INPUT HANDLING") != 0)
   {
-    /* Ничего подчищать не нужно, так как ничего и не было создано. Выход. */
     printf("\033[0;31m"\
             "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
             "[%s] - Failed on crucial part here. Exiting program..."\
             "\033[0m\n",
             section);
-    exit(0);
+    /* Ничего подчищать не нужно, так как ничего и не было создано. Выход. */
+    exit(-1);
   }
   /* При успешном запуске потока, инициализируется мьютекс. */
   input_handling_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
@@ -179,14 +176,14 @@ int main()
   * и можно продолжать работу сервера. */
   if (ret == -1)
   {
-    /* Здесь перед выходом уже потребуется очистка */
     printf("\033[0;31m"\
             "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
             "[%s] - Failed on crucial part here. Exiting program..."\
             "\033[0m\n",
             section);
+    /* Здесь, и далее, перед выходом уже потребуется очистка */
     init_shut();
-    exit(0);
+    exit(-1);
   }
 
 /*##############################################################################
@@ -225,7 +222,7 @@ int main()
             "\033[0m\n",
             section);
     init_shut();
-    exit(0);
+    exit(-1);
   }
 
 /*##############################################################################
@@ -243,7 +240,7 @@ int main()
             "\033[0m\n",
             section);
    init_shut();
-   exit(0);
+   exit(-1);
   }
   ready_count_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
   new_port_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
@@ -261,7 +258,6 @@ int main()
    * как завершился он только после команды /shut - конец работы программы.
    */
   pthread_join(input_handling_tid, NULL);
-  /*printf("[%s] - Input handling exited\n", section);*/
 
   printf("[%s] - Server shuted down\n", section);
   exit(0);

@@ -95,7 +95,23 @@ void *network_cl_handling()
   if ((udp_cl_sock_desc[client_id] = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
   {
     perror("UDP SOCKET");
-    /* Будет лучше добавить какую-то обработку здесь и подобных местах далее */
+    printf("\033[0;31m"\
+            "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"\
+            "[%s] - Failed on crucial part here\n"\
+            "       Server will now close current game sesssion "\
+            "and start new one."\
+            "\033[0m\n",
+            section);
+    /*
+     * Ошибка установит флаг перезапуска. Попытка перезапуска будет предпринята
+     * в потоке сетевого контроля (network_control)
+     */
+    restart_flag = 1;
+    /* Поток будет спать, в ожидании закрытия */
+    while(1)
+    {
+      sleep(10);
+    }
   }
   else if(verbose_flag != 0)
   {
