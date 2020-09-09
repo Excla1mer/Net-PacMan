@@ -244,7 +244,7 @@ int main()
     draw_map(window, map_sprite);
 
     /* Определение победителя после сбора всех очков */
-    if(dots >= MAX_DOTS)
+    if((dots >= MAX_DOTS) || end_game)
     {
       set_netdata(net_data, ENDGAME, my_id, -1, -1, -1, -1, -1);
       if(!end_game)
