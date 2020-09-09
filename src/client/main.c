@@ -29,7 +29,8 @@ int main()
   char score[8];
   struct sockaddr_in server, cliaddr;
   char input[50];
-  int net_data[3];
+  int net_data[7] = {-1, -1, -1, -1, -1, -1, -1};
+  int data_size = sizeof(net_data);
 
   memset(&server, 0, sizeof(server));
   server.sin_family = AF_INET;
@@ -42,49 +43,53 @@ int main()
   cliaddr.sin_port = htons(port);
   if(pthread_mutex_init(&mutex, NULL))
   {
-    printf("[main] - Error init mutex");
+    perror("[MAIN_ERROR] - Init mutex");
     exit(-1);
   }
+  struct player* players = calloc(sizeof(struct player), 4);
+  pthread_t client_check_tid;
+  pthread_t* draw_thread;
 /*##############################################################################
- * Получение данных для настройки от сервера
+ * Инициализация сокетов
  *##############################################################################
  */
   if((tcp_sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
   {
-    perror("[main] TCP socket");
+    perror("[MAIN_ERROR] TCP socket");
     exit(1);
   }
   if((udp_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
   {
-    perror("[main] UDP socket");
+    perror("[MAIN_ERROR] UDP socket");
     exit(1);
   }
-
+  /* Определение свободного порта */
   while(bind(tcp_sockfd, (struct sockaddr*)&cliaddr, sizeof(cliaddr)) == -1)
   {
     cliaddr.sin_port = htons(++port);
   }
-  printf("[main] - Your port: %d\n", port);
+  printf("[MAIN] - Your port: %d\n", port);
   if(bind(udp_sockfd, (struct sockaddr*)&cliaddr, sizeof(cliaddr)) == -1)
   {
-    perror("[main] Bind udp scoket");
+    perror("[MAIN_ERROR] Bind udp scoket");
     exit(-1);
   }
-  printf("[main] - Connecting to server...\n");
+  printf("[MAIN] - Connecting to server...\n");
   if(connect(tcp_sockfd, (struct sockaddr*)&server, sizeof(server)) == -1)
   {
-    perror("[main] connect");
+    perror("[MAIN_ERROR] Connect");
     exit(1);
   }
-  printf("[main] - Successful connect\n");
-  printf("[main] - Wait data from server...\n");
+  printf("[MAIN] - Successful connect\n");
+  printf("[MAIN] - Wait data from server...\n");
 
-  struct player* players = calloc(sizeof(struct player), 4);
-  /* Поток для обработки состояний поключившихся и нажавших READY клиентов */
-  pthread_t client_check_tid;
+/*##############################################################################
+ * Ожидание команды о готовности
+ *##############################################################################
+ */
   if(pthread_create(&client_check_tid, NULL, client_check, (void*)players) != 0)
   {
-    perror("[main] - Create client_check thread");
+    perror("[MAIN_ERROR] - Create client_check thread");
     exit(-1);
   }
 
@@ -95,31 +100,30 @@ int main()
 
     if(strcmp(input, "READY\n") == 0)
     {
-      printf("[main] - Send READY to server\n");
+      printf("[MAIN] - Send READY to server\n");
       net_data[0] = READY;
       net_data[1] = -1;
       net_data[2] = -1;
       if(send(tcp_sockfd, net_data, sizeof(net_data), TCP_NODELAY) == -1)
       {
-        perror("[main] Send");
+        perror("[MAIN_ERROR] Send READY");
         exit(1);
       }
       break;
     }
   }
+  printf("[MAIN] - Wait players...\n");
   sem_wait(&sem);
-  printf("[main] - Wait all players...\n");
   server.sin_port = htons(udp_server_port);
-  printf("udp_server_port: %d\n", udp_server_port);
-  printf("[main] - max_players: %d\n", max_players);
 /*##############################################################################
  * Подготовка к началу игрового цикла
  *##############################################################################
  */
   sfIntRect rect = {0, 0, 0, 0};
-  //players = realloc(players, sizeof(struct player) * (max_players));
+  /* Инициализация игроков */
   init_players(players, max_players, &rect);
-  pthread_t* threads = malloc(sizeof(max_players) * sizeof(pthread_t));
+  /* Создание потоков отрисовки каждого игрока */ 
+  draw_thread = malloc(sizeof(max_players) * sizeof(pthread_t));
 
   /* Создание слушающего потока для принятия данных */
   pthread_t listen_thread;
@@ -145,16 +149,19 @@ int main()
 
   /* Создание окна */
   window = sfRenderWindow_create(mode, "PAC-MAN", sfResize | sfClose, NULL);
-   if(!window)
-    return 1;
+  if(!window)
+  {
+    perror("[MAIN ERROR] - Create window");
+    exit(-1);
+  }
 
-   /* Создание часов CSFML */
+   /* Создание часов SFML */ 
   sfClock* clock = sfClock_create();
-
 /*##############################################################################
  * Начало игрового цикла
  *##############################################################################
  */
+  printf("[MAIN] - Starting game\n");
   while(sfRenderWindow_isOpen(window))
   {
     /* Отслеживание времени */
@@ -174,37 +181,37 @@ int main()
     if(sfKeyboard_isKeyPressed(sfKeyLeft) && players[my_id].last_dir != 1)
     {
       players[my_id].last_dir = 1;
-      set_netdata(net_data, -1, -1, 1);
-      sendto(udp_sockfd, net_data, sizeof(net_data), 0,
-          (struct sockaddr*)&server, sizeof(server));
-      printf("Send left key\n");
+      set_netdata(net_data, -1, -1, 1, -1 , -1, -1, -1);
+      sendto(udp_sockfd, net_data, data_size, 0, (struct sockaddr*)&server,
+          sizeof(server));
+      printf("[GAME] - Send left key\n");
 
     }
     if(sfKeyboard_isKeyPressed(sfKeyRight) && players[my_id].last_dir != 0)
     {
       players[my_id].last_dir = 0;
-      set_netdata(net_data, -1, -1, 0);
-      sendto(udp_sockfd, net_data, sizeof(net_data), 0,
-          (struct sockaddr*)&server, sizeof(server));
-      printf("Send right key\n");
+      set_netdata(net_data, -1, -1, 0, -1 , -1, -1, -1);
+      sendto(udp_sockfd, net_data, data_size, 0, (struct sockaddr*)&server,
+          sizeof(server));
+      printf("[GAME] - Send right key\n");
     }
     if(sfKeyboard_isKeyPressed(sfKeyUp) && players[my_id].last_dir != 3)
     {
       players[my_id].last_dir = 3;
-      set_netdata(net_data, -1, -1, 3);
-      sendto(udp_sockfd, net_data, sizeof(net_data), 0,
-          (struct sockaddr*)&server, sizeof(server));
-      printf("Send up key\n");
+      set_netdata(net_data, -1, -1, 3, -1 , -1, -1, -1);
+      sendto(udp_sockfd, net_data, data_size, 0, (struct sockaddr*)&server,
+          sizeof(server));
+      printf("[GAME] - Send up key\n");
     }
     if(sfKeyboard_isKeyPressed(sfKeyDown) && players[my_id].last_dir != 2)
     {
       players[my_id].last_dir = 2;
-      set_netdata(net_data, -1, -1, 2);
-      sendto(udp_sockfd, net_data, sizeof(net_data), 0,
-          (struct sockaddr*)&server, sizeof(server));
-      printf("Send down key\n");
+      set_netdata(net_data, -1, -1, 2, -1 , -1, -1, -1);
+      sendto(udp_sockfd, net_data, data_size, 0, (struct sockaddr*)&server,
+          sizeof(server));
+      printf("[GAME] - Send down key\n");
     }
-    /* Определение победителя после того, как все очки собраны */
+    /* Определение победителя после сбора всех очков */
     if(dots >= MAX_DOTS)
     {
       int loose = 0;
@@ -220,7 +227,7 @@ int main()
       }
       if(loose)
         break;
-      set_netdata(net_data, ENDGAME, my_id, -1);
+      set_netdata(net_data, ENDGAME, my_id, -1, -1, -1, -1, -1);
       if(send(tcp_sockfd, net_data, sizeof(net_data), 0) == -1)
       {
         perror("END message");
@@ -234,15 +241,15 @@ int main()
     pthread_mutex_lock(&mutex);
     for(int i = 0; i < max_players; ++i)
     {
-      if(pthread_create(&threads[i], NULL, update, (void*)&players[i]) != 0)
+      if(pthread_create(&draw_thread[i], NULL, update, (void*)&players[i]) != 0)
       {
-        perror("[main] - Create update thread");
+        perror("[MAIN ERROR] - Create update thread");
         exit(-1);
       }
     }
     for(int i = 0; i < max_players; ++i)
     {
-      pthread_join(threads[i], NULL);
+      pthread_join(draw_thread[i], NULL);
     }
     pthread_mutex_unlock(&mutex);
 
@@ -283,7 +290,7 @@ int main()
  */
   for(int i = 0; i < max_players; ++i)
   {
-    pthread_cancel(threads[i]);
+    pthread_cancel(draw_thread[i]);
   }
   sfText_destroy(score_text);
   sfFont_destroy(font);

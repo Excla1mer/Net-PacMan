@@ -19,11 +19,16 @@ void set_vec(sfVector2f* vec, float x, float y)
   vec->y = y;
 }
 
-void set_netdata(int* net_data, int a, int b, int c)
+void set_netdata(int* net_data, int a, int b, int c, int d,
+    int e, int f, int g)
 {
   net_data[0] = a;
   net_data[1] = b;
   net_data[2] = c;
+  net_data[3] = d;
+  net_data[4] = e;
+  net_data[5] = f;
+  net_data[6] = g;
 }
 /*##############################################################################
  * Функции для установки параметров SFML объектов

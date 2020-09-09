@@ -10,8 +10,9 @@
 #include "globals.h"
 #include "network.h"
 #include "player.h"
+#include "help_sets.h"
 
-#define DIV 100000;
+#define DIV 1000.0
 
 /*##############################################################################
  * Поток, обрабатывающий сообщения для старта игры
@@ -21,45 +22,43 @@ void* client_check(void* args)
 {
   struct player* my_player = (struct player*)args;
   int net_data[7];
-  float tmp;
+  float fractx;
+  float fracty;
   int connected_players = 0;
   int ready_players = 0;
-  printf("[network] - START\n");
+
+  printf("[NETWORK] - Starting\n");
   while(1)
   {
     if((recv(tcp_sockfd, net_data, sizeof(net_data), 0)) == -1)
     {
-      perror("[network] Recv init data");
+      perror("[NETWORK ERROR] Recv init data");
       exit(1);
     }
-    printf("data[0]: %d,   data[1]: %d \n", net_data[0], net_data[1]);
     switch(net_data[0])
     {
       case START:
-        printf("[network] - Got START from server\n");
+        printf("[NETWORK INFO] - Got START\n");
+        max_players = ready_players;
         sem_post(&sem);
         break;
       case CL_READY:
         ready_players = net_data[2];
-        max_players = ready_players;
-        printf("[network] - PLAYERS IN LOBBY : %d\n", connected_players);
-        printf("          - PLAYERS READY    : %d\n", ready_players);
+        printf("[NETWORK INFO] - Players in lobby : %d\n", connected_players);
+        printf("               - Players ready    : %d\n", ready_players);
         break;
       case CL_CONNECT:
         connected_players = net_data[2];
-        printf("[network] - PLAYERS IN LOBBY : %d\n", connected_players);
-        printf("          - PLAYERS READY    : %d\n", ready_players);
+        printf("[NETWORK INFO] - Players in lobby : %d\n", connected_players);
+        printf("               - Players ready    : %d\n", ready_players);
         break;
       case ID_PORT:
-        printf("[network] - Got Id_PORT [%d:%d]\n", net_data[1], net_data[2]);
+        printf("[NETWORK INFO] - Got Id_PORT [%d:%d]\n", net_data[1], net_data[2]);
         my_id = net_data[1];
-        win_id = net_data[1];
         udp_server_port = net_data[2];
         break;
       case ENDGAME:
-        win_id = net_data[1];
         return (void*)0;
-        break;
       case SYN_REQ:
         /*
          * Описание того как происходит разбиение дробного числа на два целых:
@@ -72,35 +71,27 @@ void* client_check(void* args)
          * (DIV = 10000) и записываю в net_data[3]: net_data[3] = tmp * DIV;
          * net_data[3] = 2220;
          */
-        printf("[network] - Got sync msg from server\n");
-        net_data[0] = SYN_REP;
-        printf("[network] - net_data[0]\n");
-        net_data[1] = my_id;
-        printf("[network] - net_data[1]\n");
-        net_data[2] = my_player[my_id].x; //  Отделяю целую часть числа
-        printf("[network] - net_data[2]\n");
-        tmp = my_player[my_id].x - net_data[2]; // Отделяю дробную часть
-        net_data[3] = tmp * DIV;  // Умнажаю на DIV чтобы перевести в int
-        printf("[network] - net_data[3]\n");
-        net_data[4] = my_player[my_id].y;
-        tmp = my_player[my_id].y - net_data[4];
-        printf("[network] - net_data[4]\n");
-        net_data[5] = tmp;
-        printf("[network] - net_data[5]\n");
-        net_data[6] = my_player[my_id].score;
-        printf("n_d[0]:%d n_d[1]:%d n_d[2]:%d n_d[3]:%d n_d[4]:%d n_d[5]:%d\
-        n_d[6]:%d\n", net_data[0], net_data[1], net_data[2], net_data[3],
-                net_data[4], net_data[5], net_data[6]);
+        printf("[NETWORK INFO] - Got SYN_REQ\n"); 
+        pthread_mutex_lock(&mutex);
+        
+        /* Выделение дробной части числа */
+        fractx = (my_player[my_id].x - (int)my_player[my_id].x) * DIV;
+        fracty = (my_player[my_id].y - (int)my_player[my_id].y) * DIV;
+
+        /* Заполнение сетевых данных */
+        set_netdata(net_data, SYN_REP, my_id, (int)my_player[my_id].x, fractx,
+            my_player[my_id].y, fracty, my_player[my_id].score);
+
         if(send(tcp_sockfd, net_data, sizeof(net_data), 0) == -1)
         {
-          perror("[network] Send");
+          perror("[NETWORK ERROR] Send SYN_REP");
           exit(1);
         }
-
+        pthread_mutex_unlock(&mutex);
         break;
     }
   }
-  printf("[network] - End...\n");
+  printf("[NETWORK] - Close\n");
 }
 /*##############################################################################
  * Поток определяет направление движения игрока
@@ -109,13 +100,22 @@ void* client_check(void* args)
 void* net_check(void* args)
 {
   int net_data[7];
+  int id;
   int data_size = sizeof(net_data);
   struct player* players = (struct player*)args;
+
+  struct sockaddr_in server;
+  server.sin_family = AF_INET;
+  server.sin_addr.s_addr = inet_addr(SERVER_ADDR);
+  server.sin_port = htons(udp_server_port);
+  socklen_t len = sizeof(server);
+
   while(1)
   {
-    if(recv(udp_sockfd, net_data, data_size, 0) == -1)
+    if(recvfrom(udp_sockfd, net_data, data_size, 0,
+          (struct sockaddr*)&server, &len) == -1)
     {
-      perror("[network] - Recv players dir");
+      perror("[NETWORK ERROR] - Recv direction");
       exit(-1);
     }
     switch(net_data[0])
@@ -133,16 +133,19 @@ void* net_check(void* args)
          * Затем делим на тот-же DIV, что и использовался при первеводе в целые
          * числа, и прибавляем к х: x += (2220 * 1.0) / DIV; x += 111,2220
          */
+        id = net_data[1];
         pthread_mutex_lock(&mutex);
-        players[net_data[1]].x = net_data[2];
-        players[net_data[1]].x += (net_data[3] * 1.0) / DIV;
-        players[net_data[1]].y = net_data[4];
-        players[net_data[1]].y += (net_data[5] * 1.0) / DIV;
-        players[net_data[1]].score = net_data[6];
+        players[id].x = net_data[2];
+        players[id].x += net_data[3] / DIV;
+        players[id].y = net_data[4];
+        players[id].y += net_data[5] / DIV;
+        players[id].score = net_data[6];
+        printf("[NETWORK SYNC] - Id:%d X:%.2f Y:%.2f Score:%d\n", id,
+              players[id].x, players[id]. y, players[id].score);
         pthread_mutex_unlock(&mutex);
-        printf("[test sync] - id:%d x:%f y:%f score:%d\n", net_data[1],
-              players[net_data[1]].x, players[net_data[1]]. y,
-              players[net_data[1]].score);
+        break;
+      default:
+        break;
     }
   }
 }

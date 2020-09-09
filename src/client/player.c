@@ -23,7 +23,7 @@ void init_players(struct player* p, int max_players, sfIntRect* rect)
   int h = 21;
   int place[4][2] = {{30, 30}, {26*30, 30}, {30, 29*30}, {26*30, 29*30}};
 
-  for(int i=0; i<max_players; ++i)
+  for(int i = 0; i < max_players; ++i)
   {
     /* Расстановка игроков по углам карты */
     p[i].x = place[i][0];

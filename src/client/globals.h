@@ -11,7 +11,6 @@ int my_id;
 int udp_sockfd;
 int tcp_sockfd;
 int dots;
-int win_id;
 pthread_mutex_t mutex;
 sem_t sem;
 
