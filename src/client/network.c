@@ -60,8 +60,6 @@ void* client_check(void* args)
       case ENDGAME:
         printf("[NETWORK INFO] - Recv ENDGAME message\n");
         end_game = 1;
-        printf("ENDGAME FROM THREAD: %d\n", end_game);
-        exit(-1);
         pthread_cancel(listen_thread_tid);
         return (void*)0;
       case SYN_REQ:

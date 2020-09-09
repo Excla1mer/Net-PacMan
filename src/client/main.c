@@ -28,7 +28,7 @@ int main()
  *##############################################################################
  */
   sem_init(&sem, 0, 0);
-  int end_game = 0;
+  end_game = 0;
   int port = 7777;
   char score[8];
   struct sockaddr_in server, cliaddr;
