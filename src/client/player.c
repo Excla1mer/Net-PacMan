@@ -119,7 +119,9 @@ void action_with_map(struct player* p)
       if(map[i][j] == ' ')
       {
         map[i][j] = '*';
+        pthread_mutex_lock(&dot_mutex);
         p->score += 1;
+        pthread_mutex_unlock(&dot_mutex);
         ++dots;
         return;
       }

@@ -46,6 +46,11 @@ int main()
   cliaddr.sin_addr.s_addr = INADDR_ANY;
   cliaddr.sin_port = htons(port);
 
+  if(pthread_mutex_init(&dot_mutex, NULL))
+  {
+    perror("[MAIN_ERROR] - Init mutex");
+    exit(-1);
+  }
   if(pthread_mutex_init(&mutex, NULL))
   {
     perror("[MAIN_ERROR] - Init mutex");

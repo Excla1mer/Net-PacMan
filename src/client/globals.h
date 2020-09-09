@@ -12,8 +12,9 @@ int udp_sockfd;
 int tcp_sockfd;
 int dots;
 int end_game;
-pthread_mutex_t mutex;
 sem_t sem;
+pthread_mutex_t mutex;
+pthread_mutex_t dot_mutex;
 pthread_t listen_thread_tid;
 
 #endif // GLOBALS_H
