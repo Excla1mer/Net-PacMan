@@ -249,13 +249,14 @@ int main()
     draw_map(window, map_sprite);
 
     /* Определение победителя после сбора всех очков */
+    printf("dots: %d   endgame: %d\n", dots, end_game);
     if((dots >= MAX_DOTS) || end_game)
     {
       set_netdata(net_data, ENDGAME, my_id, -1, -1, -1, -1, -1);
       if(!end_game)
         if(send(tcp_sockfd, net_data, sizeof(net_data), 0) == -1)
         {
-          perror("[MAIN] Send END message");
+          perror("[MAIN ERROR] Send END message");
           exit(-1);
         }
       draw_board(window, board_sprite, score_text, players);
