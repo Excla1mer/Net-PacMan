@@ -45,6 +45,9 @@ client_exec:
 	@./$(CLIENT)
 	@rm -rf $(CLIENT)
 
+install_sfml:
+	./install_csfml.sh
+
 .PHONY: clean
 clean:
 	@rm -rf *.o
