@@ -245,7 +245,7 @@ int main()
     if(dots >= MAX_DOTS)
     {
       set_netdata(net_data, ENDGAME, my_id, -1, -1, -1, -1, -1);
-      if(!endgame)
+      if(!end_game)
         if(send(tcp_sockfd, net_data, sizeof(net_data), 0) == -1)
         {
           perror("[MAIN] Send END message");
