@@ -107,8 +107,6 @@ int main()
     {
       printf("[MAIN] - Send READY to server\n");
       net_data[0] = READY;
-      net_data[1] = -1;
-      net_data[2] = -1;
       if(send(tcp_sockfd, net_data, sizeof(net_data), TCP_NODELAY) == -1)
       {
         perror("[MAIN_ERROR] Send READY");
