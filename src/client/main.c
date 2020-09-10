@@ -48,12 +48,12 @@ int main()
 
   if(pthread_mutex_init(&dot_mutex, NULL))
   {
-    perror("[MAIN_ERROR] - Init mutex");
+    perror("[MAIN ERROR] - Init mutex");
     exit(-1);
   }
   if(pthread_mutex_init(&mutex, NULL))
   {
-    perror("[MAIN_ERROR] - Init mutex");
+    perror("[MAIN ERROR] - Init mutex");
     exit(-1);
   }
   struct player* players = calloc(sizeof(struct player), 4);
@@ -65,12 +65,12 @@ int main()
  */
   if((tcp_sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
   {
-    perror("[MAIN_ERROR] TCP socket");
+    perror("[MAIN ERROR] TCP socket");
     exit(1);
   }
   if((udp_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
   {
-    perror("[MAIN_ERROR] UDP socket");
+    perror("[MAIN ERROR] UDP socket");
     exit(1);
   }
   /* Определение свободного порта */
@@ -95,12 +95,12 @@ int main()
   printf("[MAIN] - Wait data from server...\n");
 
 /*##############################################################################
- * Ожидание команды о готовности
+ * Ожидание команды готовности
  *##############################################################################
  */
   if(pthread_create(&client_check_tid, NULL, client_check, (void*)players) != 0)
   {
-    perror("[MAIN_ERROR] - Create client_check thread");
+    perror("[MAIN ERROR] - Create client_check thread");
     exit(-1);
   }
 
@@ -115,7 +115,7 @@ int main()
       net_data[0] = READY;
       if(send(tcp_sockfd, net_data, sizeof(net_data), TCP_NODELAY) == -1)
       {
-        perror("[MAIN_ERROR] Send READY");
+        perror("[MAIN ERROR] Send READY");
         exit(1);
       }
       break;
@@ -126,7 +126,7 @@ int main()
   server.sin_port = htons(udp_server_port);
   if(connect(udp_sockfd, (struct sockaddr*)&server, sizeof(server)) == -1)
   {
-    perror("[MAIN_ERROR] Connect");
+    perror("[MAIN ERROR] Connect");
     exit(1);
   }
 /*##############################################################################
@@ -134,9 +134,10 @@ int main()
  *##############################################################################
  */
   sfIntRect rect = {0, 0, 0, 0};
+
   /* Инициализация игроков */
   init_players(players, max_players, &rect);
-  /* Создание потоков отрисовки каждого игрока */ 
+  /* Создание потоков отрисовки каждого игрока */
   draw_thread = malloc(sizeof(max_players) * sizeof(pthread_t));
 
   /* Создание слушающего потока для принятия данных */
@@ -152,7 +153,7 @@ int main()
   sfImage* map_image = sfImage_createFromFile("textures/Walls.png");
   sfTexture* map_texture = sfTexture_createFromImage(map_image, NULL);
   sfSprite_setTexture(map_sprite, map_texture, sfTrue);
-  
+
   /* Инициализация и создание текстовых данных */
   sfText* score_text = sfText_create();
   sfText_setColor(score_text, sfWhite);
@@ -249,7 +250,6 @@ int main()
     draw_map(window, map_sprite);
 
     /* Проверка на конец игры */
-    printf("dots: %d   endgame: %d\n", dots, end_game);
     if(dots >= MAX_DOTS || end_game)
     {
       set_netdata(net_data, ENDGAME, my_id, -1, -1, -1, -1, -1);
@@ -293,6 +293,10 @@ int main()
  * Освобождение ресурсов
  *##############################################################################
  */
+  sfSprite_destroy(board_sprite);
+  sfSprite_destroy(map_sprite);
+  sfTexture_destroy(board_texture);
+  sfTexture_destroy(map_texture);
   pthread_cancel(listen_thread_tid);
   sfText_destroy(score_text);
   sfFont_destroy(font);
@@ -317,7 +321,7 @@ void draw_board(sfRenderWindow* window, sfSprite* board_sprite,
   sfVector2f vec = {0, 0};
   char* score = calloc(sizeof(int), 1);
 
-    /* Отрисовка рамки */
+  /* Отрисовка рамки */
   set_vec(&vec, 181, 270);
   sfSprite_setPosition(board_sprite, vec);
   sfRenderWindow_drawSprite(window, board_sprite, NULL);
